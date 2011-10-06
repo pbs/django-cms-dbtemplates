@@ -17,7 +17,7 @@ class DBTemplatesMiddleware(object):
             s = Site.objects.get(name='PBS')
         except Site.DoesNotExist:
             pass
-        if s:
+        else:
             available_sites.append(s)
         t = Template.objects.filter(sites__in=available_sites).distinct()
         value = [(templ.name, templ.name) for templ in t]
