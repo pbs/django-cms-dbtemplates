@@ -13,7 +13,12 @@ class DBTemplatesMiddleware(object):
         available_sites = []
         if site_id:
             available_sites.append(Site.objects.get(pk=site_id))
-        available_sites.append(Site.objects.get(name='PBS'))
+        try:
+            s = Site.objects.get(name='PBS')
+        except Site.DoesNotExist:
+            pass
+        if s:
+            available_sites.append(s)
         t = Template.objects.filter(sites__in=available_sites).distinct()
         value = [(templ.name, templ.name) for templ in t]
         if settings.CMS_TEMPLATE_INHERITANCE:
