@@ -2,10 +2,13 @@ from django.contrib import admin
 from django.contrib.admin.sites import NotRegistered
 from django.contrib.sites.models import Site
 from django.db.models import Q
+from django.conf import settings
 
 from dbtemplates.admin import TemplateAdmin
 from dbtemplates.models import Template
-from cms.models import GlobalPagePermission
+
+from cms.models import GlobalPagePermission, Page
+from cms.admin.pageadmin import PageAdmin
 
 
 class RestrictedTemplateAdmin(TemplateAdmin):
@@ -34,13 +37,14 @@ class RestrictedTemplateAdmin(TemplateAdmin):
         ).distinct()
 
     def get_readonly_fields(self, request, obj=None):
-        ro = ['name', 'content', 'sites', 'creation_date', 'last_changed']
+        allways = ['creation_date', 'last_changed']
+        ro = ['name', 'content', 'sites'] + allways
         if not obj or request.user.is_superuser:
-            return []
+            return allways
         s = Site.objects.get(name='PBS')
         if s in obj.sites.all():
             return ro
-        return []
+        return allways
 
     def has_delete_permission(self, request, obj=None):
         if not obj or request.user.is_superuser:
@@ -61,8 +65,22 @@ class RestrictedTemplateAdmin(TemplateAdmin):
                 object_id, extra_context=extra_context)
 
 
+class DynamicTemplatesPageAdmin(PageAdmin):
+    def get_form(self, request, obj=None, **kwargs):
+        f = super(DynamicTemplatesPageAdmin, self).get_form(
+                request, obj, **kwargs)
+        f.base_fields['template'].choices = settings.CMS_TEMPLATES
+        return f
+
+
 try:
     admin.site.unregister(Template)
 except NotRegistered:
     pass
 admin.site.register(Template, RestrictedTemplateAdmin)
+
+try:
+    admin.site.unregister(Page)
+except NotRegistered:
+    pass
+admin.site.register(Page, DynamicTemplatesPageAdmin)
