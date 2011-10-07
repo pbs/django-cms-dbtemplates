@@ -33,7 +33,7 @@ class RestrictedTemplateAdmin(TemplateAdmin):
         q = super(TemplateAdmin, self).queryset(request)
         return q.filter(
             Q(sites__in=self._available_sites(request.user)) |
-            Q(sites=Site.objects.get(name='PBS'))
+            Q(sites__name='PBS')
         ).distinct()
 
     def get_readonly_fields(self, request, obj=None):
@@ -69,7 +69,11 @@ class DynamicTemplatesPageAdmin(PageAdmin):
     def get_form(self, request, obj=None, **kwargs):
         f = super(DynamicTemplatesPageAdmin, self).get_form(
                 request, obj, **kwargs)
-        f.base_fields['template'].choices = settings.CMS_TEMPLATES
+        choices = settings.CMS_TEMPLATES
+        if settings.CMS_TEMPLATE_INHERITANCE:
+            choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+                       'Inherit the template of the nearest ancestor')]
+        f.base_fields['template'].choices = choices
         return f
 
 

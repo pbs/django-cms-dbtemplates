@@ -20,11 +20,9 @@ class DBTemplatesMiddleware(object):
         else:
             available_sites.append(s)
         t = Template.objects.filter(sites__in=available_sites).distinct()
-        value = [(templ.name, templ.name) for templ in t]
-        if settings.CMS_TEMPLATE_INHERITANCE:
-            value += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
-                       'Inherit the template of the nearest ancestor')]
-        CMS_TEMPLATES.value = value
+        CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in t]
+        if not CMS_TEMPLATES.value:
+            CMS_TEMPLATES.value = [('dummy', 'Please create a template first.')]
 
         # This is a huge hack.
         # Expand the model choices field to contain all templates.
