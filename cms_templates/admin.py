@@ -49,12 +49,9 @@ class RestrictedTemplateAdmin(TemplateAdmin):
         return allways
 
     def has_delete_permission(self, request, obj=None):
-        if not obj or request.user.is_superuser:
+        if request.user.is_superuser:
             return True
-        s = Site.objects.get(name='PBS')
-        if s in obj.sites.all():
-            return False
-        return True
+        return False
 
     def change_view(self, request, object_id, extra_context=None):
         extra_context = {}
