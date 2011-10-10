@@ -25,9 +25,11 @@ class RestrictedTemplateAdmin(TemplateAdmin):
     def _available_sites(self, user):
         q = Site.objects.all()
         if not user.is_superuser:
-            global_pages = GlobalPagePermission.objects.filter(user=user)
-            q = Site.objects.filter(globalpagepermission__in=global_pages)
-        return q.distinct()
+            q = Site.objects.filter(
+                Q(globalpagepermission__user=user) |
+                Q(globalpagepermission__group__user=user)
+            ).distinct()
+        return q
 
     def queryset(self, request):
         q = super(TemplateAdmin, self).queryset(request)
