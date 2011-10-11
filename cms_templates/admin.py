@@ -7,7 +7,7 @@ from django.conf import settings
 from dbtemplates.admin import TemplateAdmin
 from dbtemplates.models import Template
 
-from cms.models import GlobalPagePermission, Page
+from cms.models import Page
 from cms.admin.pageadmin import PageAdmin
 
 
