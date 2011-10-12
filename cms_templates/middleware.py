@@ -20,7 +20,7 @@ class SiteIDPatchMiddleware(object):
     def process_request(self, request):
         site_id = request.session.get('cms_admin_site', None)
         match = resolve(request.path)
-        if match.app_name in ['admin'] and site_id:
+        if match.url_name == 'pages-details-by-slug' and site_id:
             settings.__class__.SITE_ID.value = site_id
         else:
             self.fallback.process_request(request)
