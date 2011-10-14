@@ -3,6 +3,8 @@ from django.core.urlresolvers import resolve
 from djangotoolbox.utils import make_tls_property
 from djangotoolbox.sites.dynamicsite import DynamicSiteIDMiddleware
 from django.contrib.sites.models import Site
+from django.db.models import Q
+
 from dbtemplates.models import Template
 from cms.models import Page
 
@@ -18,10 +20,30 @@ class SiteIDPatchMiddleware(object):
     fallback = DynamicSiteIDMiddleware()
 
     def process_request(self, request):
-        site_id = request.session.get('cms_admin_site', None)
+        # Use cms_admin_site session variable to guess on what site
+        # the user is trying to edit stuff.
+        session_site_id = request.session.get('cms_admin_site', None)
         match = resolve(request.path)
-        if match.app_name == 'admin' and site_id:
-            settings.__class__.SITE_ID.value = site_id
+        user = getattr(request, 'user', None)
+
+        if (match.app_name == 'admin'
+        and match.url_name == 'index'
+        and session_site_id is None
+        and user is not None
+        and not user.is_superuser
+        and not user.is_anonymous()):
+            f = (
+                Q(globalpagepermission__user=user)
+                | Q(globalpagepermission__group__user=user)
+            )
+            try:
+                s_id = Site.objects.filter(f)[0].pk
+                settings.__class__.SITE_ID.value = s_id
+                request.session['cms_admin_site'] = s_id
+            except IndexError:
+                pass
+        elif match.app_name == 'admin' and session_site_id is not None:
+            settings.__class__.SITE_ID.value = session_site_id
         else:
             self.fallback.process_request(request)
 
