@@ -3,10 +3,10 @@ from django.core.urlresolvers import resolve
 from djangotoolbox.utils import make_tls_property
 from djangotoolbox.sites.dynamicsite import DynamicSiteIDMiddleware
 from django.contrib.sites.models import Site
-from django.db.models import Q
 
 from dbtemplates.models import Template
 from cms.models import Page
+from cms.utils.permissions import get_user_sites_queryset
 
 
 CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES = make_tls_property()
@@ -32,26 +32,25 @@ class SiteIDPatchMiddleware(object):
         and user is not None
         and not user.is_superuser
         and not user.is_anonymous()):
-            f = (
-                Q(globalpagepermission__user=user)
-                | Q(globalpagepermission__group__user=user)
-            )
+            sites = get_user_sites_queryset(request.user)
             try:
-                s_id = Site.objects.filter(f)[0].pk
-                settings.__class__.SITE_ID.value = s_id
-                request.session['cms_admin_site'] = s_id
+                s_id = sites[0].pk
+                session_site_id = request.session['cms_admin_site'] = s_id
             except IndexError:
+                # This user doesn't have any sites under his control.
                 pass
-        elif match.app_name == 'admin' and session_site_id is not None:
+
+        if match.app_name == 'admin' and session_site_id is not None:
             settings.__class__.SITE_ID.value = session_site_id
+
         else:
             self.fallback.process_request(request)
 
 
 class DBTemplatesMiddleware(object):
     def process_request(self, request):
-        site_id = request.session.get('cms_admin_site', None)
         available_sites = []
+        site_id = request.session.get('cms_admin_site', None)
         if site_id:
             available_sites.append(Site.objects.get(pk=site_id))
         try:
