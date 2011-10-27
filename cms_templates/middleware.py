@@ -50,15 +50,12 @@ class SiteIDPatchMiddleware(object):
 class DBTemplatesMiddleware(object):
     def process_request(self, request):
         available_sites = []
-        site_id = request.session.get('cms_admin_site', None)
-        if site_id:
-            available_sites.append(Site.objects.get(pk=site_id))
+        site_id = request.session.get('cms_admin_site', settings.SITE_ID)
+        available_sites.append(Site.objects.get(pk=site_id))
         try:
-            s = Site.objects.get(name='PBS')
+            available_sites.append(Site.objects.get(name='PBS'))
         except Site.DoesNotExist:
             pass
-        else:
-            available_sites.append(s)
         t = Template.objects.filter(sites__in=available_sites).distinct()
         CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in t]
         if not CMS_TEMPLATES.value:
