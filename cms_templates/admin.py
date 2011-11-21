@@ -4,14 +4,18 @@ from django.contrib.sites.models import Site
 from django.db.models import Q
 from django.conf import settings
 
-from dbtemplates.admin import TemplateAdmin
 from dbtemplates.models import Template
 
 from cms.models import Page
-from cms.admin.pageadmin import PageAdmin
+
+def _get_registered_modeladmin(model):
+    """ This is a huge hack to get the registered modeladmin for the model.
+        We need this functionality in case someone else already registered
+        a different modeladmin for this model. """
+    return type(admin.site._registry[model])
 
 
-class RestrictedTemplateAdmin(TemplateAdmin):
+class RestrictedTemplateAdmin(_get_registered_modeladmin(Template)):
 
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
@@ -20,7 +24,8 @@ class RestrictedTemplateAdmin(TemplateAdmin):
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         if db_field.name == "sites":
             kwargs["queryset"] = self._available_sites(request.user)
-        return super(TemplateAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
+        return super(RestrictedTemplateAdmin, self).formfield_for_manytomany(
+                db_field, request, **kwargs)
 
     def _available_sites(self, user):
         q = Site.objects.all()
@@ -32,7 +37,7 @@ class RestrictedTemplateAdmin(TemplateAdmin):
         return q
 
     def queryset(self, request):
-        q = super(TemplateAdmin, self).queryset(request)
+        q = super(RestrictedTemplateAdmin, self).queryset(request)
         return q.filter(
             Q(sites__in=self._available_sites(request.user)) |
             Q(sites__name='PBS')
@@ -64,7 +69,7 @@ class RestrictedTemplateAdmin(TemplateAdmin):
                 object_id, extra_context=extra_context)
 
 
-class DynamicTemplatesPageAdmin(PageAdmin):
+class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
     def get_form(self, request, obj=None, **kwargs):
         f = super(DynamicTemplatesPageAdmin, self).get_form(
                 request, obj, **kwargs)
