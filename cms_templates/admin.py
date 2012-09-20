@@ -81,6 +81,18 @@ class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
         return f
 
 
+class TemplateAdminInline(admin.TabularInline):
+    model = Template.sites.through
+    extra = 1
+
+    def __init__(self, *args, **kwargs):
+        super(TemplateAdminInline, self).__init__(*args, **kwargs)
+
+
+RegisteredSiteAdmin = _get_registered_modeladmin(Site)
+RegisteredSiteAdmin.inlines += [TemplateAdminInline]
+
+
 try:
     admin.site.unregister(Template)
 except NotRegistered:
@@ -92,3 +104,9 @@ try:
 except NotRegistered:
     pass
 admin.site.register(Page, DynamicTemplatesPageAdmin)
+
+try:
+    admin.site.unregister(Site)
+except NotRegistered:
+    pass
+admin.site.register(Site, RegisteredSiteAdmin)
