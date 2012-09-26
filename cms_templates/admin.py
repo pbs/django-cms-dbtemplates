@@ -90,7 +90,10 @@ class TemplateAdminInline(admin.TabularInline):
 
 
 RegisteredSiteAdmin = _get_registered_modeladmin(Site)
-RegisteredSiteAdmin.inlines += [TemplateAdminInline]
+
+
+class ExtendedSiteAdmin(RegisteredSiteAdmin):
+    inlines = RegisteredSiteAdmin.inlines + [TemplateAdminInline]
 
 
 try:
@@ -109,4 +112,4 @@ try:
     admin.site.unregister(Site)
 except NotRegistered:
     pass
-admin.site.register(Site, RegisteredSiteAdmin)
+admin.site.register(Site, ExtendedSiteAdmin)
