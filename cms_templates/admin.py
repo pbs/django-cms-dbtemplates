@@ -89,11 +89,39 @@ class TemplateAdminInline(admin.TabularInline):
         super(TemplateAdminInline, self).__init__(*args, **kwargs)
 
 
+from django import forms
+from django.contrib.admin.widgets import FilteredSelectMultiple
+
+
 RegisteredSiteAdmin = _get_registered_modeladmin(Site)
+SiteAdminForm = RegisteredSiteAdmin.form
+
+
+class ExtendedSiteAdminForm(SiteAdminForm):
+    templates = forms.ModelMultipleChoiceField(
+        queryset=Template.objects.all(),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name='Templates',
+            is_stacked=False
+        )
+    )
+
+    def __init__(self, *args, **kwargs):
+        super(ExtendedSiteAdminForm, self).__init__(*args, **kwargs)
+        self.fields['templates'].initial = self.instance.template_set.all()
+
+    def save(self, commit=True):
+        instance =  super(ExtendedSiteAdminForm, self).save(commit=False)
+        instance.template_set = self.cleaned_data['templates']
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class ExtendedSiteAdmin(RegisteredSiteAdmin):
-    inlines = RegisteredSiteAdmin.inlines + [TemplateAdminInline]
+    form = ExtendedSiteAdminForm
 
 
 try:
