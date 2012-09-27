@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin.sites import NotRegistered
 from django.contrib.sites.models import Site
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.conf import settings
 
@@ -109,13 +110,39 @@ class ExtendedSiteAdminForm(SiteAdminForm):
 
     def __init__(self, *args, **kwargs):
         super(ExtendedSiteAdminForm, self).__init__(*args, **kwargs)
-        self.fields['templates'].initial = self.instance.template_set.all()
+        if self.instance.pk is not None:
+            self.fields['templates'].initial = self.instance.template_set.all()
+
+    def clean_templates(self):
+        assigned_templates = self.cleaned_data['templates']
+        if self.instance.pk is None:
+            return assigned_templates
+        pks = [s.pk for s in assigned_templates]
+        # templates that were previously assigned to this site, but got unassigned
+        unassigned_templates = self.instance.template_set.exclude(pk__in=pks)
+        templates_with_no_sites = []
+        for template in unassigned_templates:
+            if template.sites.count() == 1:
+                templates_with_no_sites.append(template)
+        if templates_with_no_sites:
+            raise ValidationError(
+                "Following templates will remain with no sites assigned: %s" %
+                ", ".join(t.name for t in templates_with_no_sites))
+        return assigned_templates
 
     def save(self, commit=True):
         instance =  super(ExtendedSiteAdminForm, self).save(commit=False)
+        # If the object is new, we need to force save it, whether commit
+        # is True or False, otherwise setting the template_set would fail
+        # This would cause the object to be saved twice if used in an
+        # InlineFormSet
+        force_save = self.instance.pk is None
+        if force_save:
+            instance.save()
         instance.template_set = self.cleaned_data['templates']
         if commit:
-            instance.save()
+            if not force_save:
+                instance.save()
             self.save_m2m()
         return instance
 
