@@ -1,13 +1,17 @@
 from django.contrib import admin
 from django.contrib.admin.sites import NotRegistered
 from django.contrib.sites.models import Site
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.conf import settings
+from django.forms import ModelMultipleChoiceField
 
 from dbtemplates.models import Template
+from dbtemplates.utils.cache import invalidate_cache_for_sites
 
 from cms.models import Page
+
 
 def _get_registered_modeladmin(model):
     """ This is a huge hack to get the registered modeladmin for the model.
@@ -82,16 +86,6 @@ class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
         return f
 
 
-class TemplateAdminInline(admin.TabularInline):
-    model = Template.sites.through
-    extra = 1
-
-    def __init__(self, *args, **kwargs):
-        super(TemplateAdminInline, self).__init__(*args, **kwargs)
-
-
-from django import forms
-from django.contrib.admin.widgets import FilteredSelectMultiple
 
 
 RegisteredSiteAdmin = _get_registered_modeladmin(Site)
@@ -99,7 +93,7 @@ SiteAdminForm = RegisteredSiteAdmin.form
 
 
 class ExtendedSiteAdminForm(SiteAdminForm):
-    templates = forms.ModelMultipleChoiceField(
+    templates = ModelMultipleChoiceField(
         queryset=Template.objects.all(),
         required=False,
         widget=FilteredSelectMultiple(
