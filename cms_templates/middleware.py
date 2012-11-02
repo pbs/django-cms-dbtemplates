@@ -3,11 +3,11 @@ from django.core.urlresolvers import resolve
 from djangotoolbox.utils import make_tls_property
 from djangotoolbox.sites.dynamicsite import DynamicSiteIDMiddleware
 from django.contrib.sites.models import Site
+from django.utils.cache import patch_vary_headers
 
 from dbtemplates.models import Template
 from cms.models import Page
 from cms.utils.permissions import get_user_sites_queryset
-
 
 CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES = make_tls_property()
 
@@ -45,6 +45,16 @@ class SiteIDPatchMiddleware(object):
 
         else:
             self.fallback.process_request(request)
+
+    def process_response(self, request, response):
+        """
+        This method patches the 'Vary' response header to include
+        'Host' header as a key to cache responses.
+        Used by django.middleware.cache
+        """
+        patch_vary_headers(response, ('Host',))
+        return response
+
 
 
 class DBTemplatesMiddleware(object):
