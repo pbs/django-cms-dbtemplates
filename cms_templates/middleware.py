@@ -11,6 +11,7 @@ from cms.utils.permissions import get_user_sites_queryset
 
 CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES = make_tls_property()
 
+
 class SiteIDPatchMiddleware(object):
     """ This middleware works together with DynamicSiteIDMiddleware
     from djangotoolbox and patches the site_id based on the
@@ -56,7 +57,6 @@ class SiteIDPatchMiddleware(object):
         return response
 
 
-
 class DBTemplatesMiddleware(object):
     def process_request(self, request):
         available_sites = []
@@ -69,12 +69,13 @@ class DBTemplatesMiddleware(object):
         t = Template.objects.filter(sites__in=available_sites).distinct()
         CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in t]
         if not CMS_TEMPLATES.value:
-            CMS_TEMPLATES.value = [('dummy', 'Please create a template first.')]
+            CMS_TEMPLATES.value = [('dummy',
+                                    'Please create a template first.')]
 
         # This is a huge hack.
         # Expand the model choices field to contain all templates.
         all_templates = Template.objects.all().values_list('name')
-        choices = [t*2 for t in all_templates]
+        choices = [t * 2 for t in all_templates]
         if settings.CMS_TEMPLATE_INHERITANCE:
             choices += [('INHERIT', 'INHERIT')]
         Page._meta.get_field_by_name('template')[0].choices[:] = choices
