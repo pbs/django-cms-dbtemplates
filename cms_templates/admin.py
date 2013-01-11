@@ -12,6 +12,7 @@ from dbtemplates.utils.cache import invalidate_cache_for_sites
 
 from cms.models import Page
 
+from restricted_admin_decorators import restricted_has_delete_permission, restricted_get_readonly_fields, restricted_formfield_for_manytomany, restricted_queryset
 
 def _get_registered_modeladmin(model):
     """ This is a huge hack to get the registered modeladmin for the model.
@@ -19,49 +20,18 @@ def _get_registered_modeladmin(model):
         a different modeladmin for this model. """
     return type(admin.site._registry[model])
 
+            
+allways = ['creation_date', 'last_changed']
+ro = ['name', 'content', 'sites'] + allways
 
+@restricted_has_delete_permission(settings.TEMPLATES_RESTRICT_USER, settings.TEMPLATES_SHARED_SITES)
+@restricted_get_readonly_fields(settings.TEMPLATES_RESTRICT_USER, settings.TEMPLATES_SHARED_SITES, ro=ro, allways=allways)
+@restricted_formfield_for_manytomany(settings.TEMPLATES_RESTRICT_USER)
+@restricted_queryset(settings.TEMPLATES_RESTRICT_USER, settings.TEMPLATES_SHARED_SITES, settings.TEMPLATES_INCLUDE_ORPHAN)
 class RestrictedTemplateAdmin(_get_registered_modeladmin(Template)):
 
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
-
-
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
-        if db_field.name == "sites":
-            kwargs["queryset"] = self._available_sites(request.user)
-        return super(RestrictedTemplateAdmin, self).formfield_for_manytomany(
-                db_field, request, **kwargs)
-
-    def _available_sites(self, user):
-        q = Site.objects.all()
-        if not user.is_superuser:
-            q = Site.objects.filter(
-                Q(globalpagepermission__user=user) |
-                Q(globalpagepermission__group__user=user)
-            ).distinct()
-        return q
-
-    def queryset(self, request):
-        q = super(RestrictedTemplateAdmin, self).queryset(request)
-        return q.filter(
-            Q(sites__in=self._available_sites(request.user)) |
-            Q(sites__name='PBS')
-        ).distinct()
-
-    def get_readonly_fields(self, request, obj=None):
-        allways = ['creation_date', 'last_changed']
-        ro = ['name', 'content', 'sites'] + allways
-        if not obj or request.user.is_superuser:
-            return allways
-        s = Site.objects.get(name='PBS')
-        if s in obj.sites.all():
-            return ro
-        return allways
-
-    def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return False
 
     def change_view(self, request, object_id, extra_context=None):
         extra_context = {}
