@@ -4,7 +4,7 @@ from django.contrib.sites.models import Site
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from django.conf import settings
+from settings import shared_sites, include_orphan, restrict_user
 from django.forms import ModelMultipleChoiceField
 
 from dbtemplates.models import Template
@@ -24,10 +24,10 @@ def _get_registered_modeladmin(model):
 allways = ['creation_date', 'last_changed']
 ro = ['name', 'content', 'sites'] + allways
 
-@restricted_has_delete_permission(settings.TEMPLATES_RESTRICT_USER, settings.TEMPLATES_SHARED_SITES)
-@restricted_get_readonly_fields(settings.TEMPLATES_RESTRICT_USER, settings.TEMPLATES_SHARED_SITES, ro=ro, allways=allways)
-@restricted_formfield_for_manytomany(settings.TEMPLATES_RESTRICT_USER)
-@restricted_queryset(settings.TEMPLATES_RESTRICT_USER, settings.TEMPLATES_SHARED_SITES, settings.TEMPLATES_INCLUDE_ORPHAN)
+@restricted_has_delete_permission(restrict_user, shared_sites)
+@restricted_get_readonly_fields(restrict_user, shared_sites, ro=ro, allways=allways)
+@restricted_formfield_for_manytomany(restrict_user)
+@restricted_queryset(restrict_user, shared_sites, include_orphan)
 class RestrictedTemplateAdmin(_get_registered_modeladmin(Template)):
 
     list_filter = ('sites__name', )

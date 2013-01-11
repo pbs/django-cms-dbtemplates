@@ -1,5 +1,5 @@
 from django.conf import settings
 
-shared_sites = getattr(settings, 'TEMPLATES_SHARED_SITES', [])
-include_orphan = getattr(settings, 'TEMPLATES_INCLUDE_ORPHAN', True)
-restrict_user = getattr(settings, 'TEMPLATES_RESTRICT_USER', False)
+shared_sites = getattr(settings, 'DBTEMPLATES_SHARED_SITES', [])
+include_orphan = getattr(settings, 'DBTEMPLATES_INCLUDE_ORPHAN', False)
+restrict_user = getattr(settings, 'DBTEMPLATES_RESTRICT_USER', False)
