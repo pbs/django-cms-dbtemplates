@@ -5,6 +5,7 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from settings import shared_sites, include_orphan, restrict_user
+from django.conf import settings
 from django.forms import ModelMultipleChoiceField
 
 from dbtemplates.models import Template
