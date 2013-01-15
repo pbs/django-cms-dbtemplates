@@ -22,13 +22,13 @@ def _get_registered_modeladmin(model):
     return type(admin.site._registry[model])
 
             
-allways = ['creation_date', 'last_changed']
-ro = ['name', 'content', 'sites'] + allways
+allways = ('creation_date', 'last_changed')
+ro = ('name', 'content', 'sites') + allways
 
-@restricted_has_delete_permission(restrict_user, shared_sites)
-@restricted_get_readonly_fields(restrict_user, shared_sites, ro=ro, allways=allways)
+@restricted_has_delete_permission(restrict_user, tuple(shared_sites))
+@restricted_get_readonly_fields(restrict_user, tuple(shared_sites), ro=ro, allways=allways)
 @restricted_formfield_for_manytomany(restrict_user)
-@restricted_queryset(restrict_user, shared_sites, include_orphan)
+@restricted_queryset(restrict_user, tuple(shared_sites), include_orphan)
 class RestrictedTemplateAdmin(_get_registered_modeladmin(Template)):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'

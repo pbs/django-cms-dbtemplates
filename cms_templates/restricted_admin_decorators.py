@@ -31,7 +31,7 @@ def restricted_formfield_for_manytomany(restrict_user=False, **kw):
         return cls
     return _formfield_for_manytomany
 
-def restricted_queryset(restrict_user=False, shared_sites=[], include_orphan=True, **kw):
+def restricted_queryset(restrict_user=False, shared_sites=(), include_orphan=True, **kw):
     """Parameterized class decorator used to extend the default "queryset" behavior of a ModelAdmin derived class.
     """
     @throw_error_if_not_ModelAdmin
@@ -56,7 +56,7 @@ def restricted_queryset(restrict_user=False, shared_sites=[], include_orphan=Tru
     return _queryset
 
 
-def restricted_get_readonly_fields(restrict_user=False, shared_sites=[], ro=[], allways=[], **kw):
+def restricted_get_readonly_fields(restrict_user=False, shared_sites=(), ro=(), allways=(), **kw):
     """Parameterized class decorator used to extend the default "get_readonly_fields" behavior of a ModelAdmin derived class.
     """
     @throw_error_if_not_ModelAdmin
@@ -75,7 +75,7 @@ def restricted_get_readonly_fields(restrict_user=False, shared_sites=[], ro=[], 
         
     return _get_readonly_fields
 
-def restricted_has_delete_permission(restrict_user=False, shared_sites=[], **kw):
+def restricted_has_delete_permission(restrict_user=False, shared_sites=(), **kw):
     """Parameterized class decorator used to extend the default "has_delete_permission" behavior of a ModelAdmin derived class.
     """
     @throw_error_if_not_ModelAdmin
