@@ -30,19 +30,8 @@ ro = ['name', 'content', 'sites'] + allways
 @restricted_formfield_for_manytomany(restrict_user)
 @restricted_queryset(restrict_user, shared_sites, include_orphan)
 class RestrictedTemplateAdmin(_get_registered_modeladmin(Template)):
-
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
-
-    def change_view(self, request, object_id, extra_context=None):
-        extra_context = {}
-        if not request.user.is_superuser:
-            t = Template.objects.get(pk=object_id)
-            s = Site.objects.get(name='PBS')
-            if s in t.sites.all():
-                extra_context = {'read_only': True}
-        return super(RestrictedTemplateAdmin, self).change_view(request,
-                object_id, extra_context=extra_context)
 
 
 class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
@@ -55,7 +44,6 @@ class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
                        'Inherit the template of the nearest ancestor')]
         f.base_fields['template'].choices = choices
         return f
-
 
 
 
