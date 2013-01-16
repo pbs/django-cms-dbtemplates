@@ -66,7 +66,7 @@ def restricted_get_readonly_fields(restrict_user=False, shared_sites=(), ro=(), 
             if not obj or request.user.is_superuser:
                 return allways
             if restrict_user and shared_sites:
-                if obj.sites.filter(name__in=shared_sites):
+                if obj.sites.filter(name__in=shared_sites).exists():
                     return ro
             return allways
             
@@ -85,7 +85,7 @@ def restricted_has_delete_permission(restrict_user=False, shared_sites=(), **kw)
             if request.user.is_superuser or obj is None:
                 return True
             if restrict_user and shared_sites:
-                return not bool(obj.sites.filter(name__in=shared_sites))
+                return not obj.sites.filter(name__in=shared_sites).exists()
             return True
 
         cls.has_delete_permission = __has_delete_permission
@@ -102,8 +102,8 @@ def restricted_change_view(restrict_user=False, shared_sites=(), **kw):
             extra_context = {}
             if not request.user.is_superuser:
                 if restrict_user and shared_sites:
-                    m = self.model.objects.get(pk=object_id)
-                    if m.sites.filter(name__in=shared_sites):
+                    obj = self.model.objects.get(pk=object_id)
+                    if obj.sites.filter(name__in=shared_sites).exists():
                         extra_context = {'read_only': True}
             return super(cls, self).change_view(request,
                         object_id, extra_context=extra_context)
