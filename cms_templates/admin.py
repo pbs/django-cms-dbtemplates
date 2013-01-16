@@ -33,7 +33,20 @@ class RestrictedTemplateAdmin(_get_registered_modeladmin(Template)):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
 
+    def change_view(self, request, object_id, extra_context=None):
+        extra_context = {'read_only': True} if self._should_hide_save_buttons(request, object_id) else {}
+        return super(RestrictedTemplateAdmin, self).change_view(request,
+                    object_id, extra_context=extra_context)
 
+    def _should_hide_save_buttons(self, request, object_id):
+        if not request.user.is_superuser:
+            if restrict_user and shared_sites:
+                t = Template.objects.get(pk=object_id)
+                if t.sites.filter(name__in=shared_sites):
+                    return True
+        return False
+        
+        
 class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
     def get_form(self, request, obj=None, **kwargs):
         f = super(DynamicTemplatesPageAdmin, self).get_form(
