@@ -91,3 +91,25 @@ def restricted_has_delete_permission(restrict_user=False, shared_sites=(), **kw)
         cls.has_delete_permission = __has_delete_permission
         return cls
     return _has_delete_permission
+
+def restricted_change_view(restrict_user=False, shared_sites=(), **kw):
+    """Parameterized class decorator used to extend the default "change_view" behavior of a ModelAdmin derived class.
+    """
+    @throw_error_if_not_ModelAdmin
+    def _change_view(cls):
+        
+        def __change_view(self, request, object_id, extra_context=None):
+            extra_context = {}
+            if not request.user.is_superuser:
+                if restrict_user and shared_sites:
+                    m = self.model.objects.get(pk=object_id)
+                    if m.sites.filter(name__in=shared_sites):
+                        extra_context = {'read_only': True}
+            return super(cls, self).change_view(request,
+                        object_id, extra_context=extra_context)
+            
+        cls.change_view = __change_view
+        return cls
+    return _change_view
+
+

@@ -13,7 +13,7 @@ from dbtemplates.utils.cache import invalidate_cache_for_sites
 
 from cms.models import Page
 
-from restricted_admin_decorators import restricted_has_delete_permission, restricted_get_readonly_fields, restricted_formfield_for_manytomany, restricted_queryset
+from restricted_admin_decorators import restricted_has_delete_permission, restricted_get_readonly_fields, restricted_formfield_for_manytomany, restricted_queryset, restricted_change_view
 
 def _get_registered_modeladmin(model):
     """ This is a huge hack to get the registered modeladmin for the model.
@@ -29,24 +29,12 @@ ro = ('name', 'content', 'sites') + allways
 @restricted_get_readonly_fields(restrict_user, tuple(shared_sites), ro=ro, allways=allways)
 @restricted_formfield_for_manytomany(restrict_user)
 @restricted_queryset(restrict_user, tuple(shared_sites), include_orphan)
+@restricted_change_view(restrict_user, tuple(shared_sites)) #hides all save buttons
 class RestrictedTemplateAdmin(_get_registered_modeladmin(Template)):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
 
-    def change_view(self, request, object_id, extra_context=None):
-        extra_context = {'read_only': True} if self._should_hide_save_buttons(request, object_id) else {}
-        return super(RestrictedTemplateAdmin, self).change_view(request,
-                    object_id, extra_context=extra_context)
-
-    def _should_hide_save_buttons(self, request, object_id):
-        if not request.user.is_superuser:
-            if restrict_user and shared_sites:
-                t = Template.objects.get(pk=object_id)
-                if t.sites.filter(name__in=shared_sites):
-                    return True
-        return False
-        
-        
+    
 class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
     def get_form(self, request, obj=None, **kwargs):
         f = super(DynamicTemplatesPageAdmin, self).get_form(
