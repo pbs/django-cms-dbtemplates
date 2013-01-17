@@ -1,5 +1,5 @@
 from django.contrib.sites.models import Site
-from django.db.models import Q
+from django.db.models import Q, Model
 from django.contrib.admin.options import ModelAdmin
 
 def throw_error_if_not_ModelAdmin(f):
@@ -112,4 +112,16 @@ def restricted_change_view(restrict_user=False, shared_sites=(), **kw):
         return cls
     return _change_view
 
+def get_restricted_instances(model, site_id=None, shared_sites=(), include_orphan=False):
+    if not issubclass(model, Model):
+        raise TypeError('%s should be a django model.' % model.__name__)
 
+    if site_id:
+        f = Q(sites=Site.objects.get(pk=site_id))
+    else:
+        f = Q(sites=Site.objects.get_current())
+    if shared_sites:
+        f |= Q(sites__name__in=shared_sites)
+    if include_orphan:
+        f |= Q(sites__isnull=True)
+    return model.objects.filter(f).distinct()

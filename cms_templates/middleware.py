@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.urlresolvers import resolve
+from django.db.models import Q
 from djangotoolbox.utils import make_tls_property
 from djangotoolbox.sites.dynamicsite import DynamicSiteIDMiddleware
 from django.contrib.sites.models import Site
@@ -8,6 +9,8 @@ from django.utils.cache import patch_vary_headers
 from dbtemplates.models import Template
 from cms.models import Page
 from cms.utils.permissions import get_user_sites_queryset
+from settings import shared_sites, include_orphan
+from restricted_admin_decorators import get_restricted_instances
 
 CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES = make_tls_property()
 
@@ -59,14 +62,10 @@ class SiteIDPatchMiddleware(object):
 
 class DBTemplatesMiddleware(object):
     def process_request(self, request):
-        available_sites = []
+
         site_id = request.session.get('cms_admin_site', settings.SITE_ID)
-        available_sites.append(Site.objects.get(pk=site_id))
-        try:
-            available_sites.append(Site.objects.get(name='PBS'))
-        except Site.DoesNotExist:
-            pass
-        t = Template.objects.filter(sites__in=available_sites).distinct()
+        t = get_restricted_instances(Template, site_id, shared_sites, include_orphan)
+        
         CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in t]
         if not CMS_TEMPLATES.value:
             CMS_TEMPLATES.value = [('dummy',
