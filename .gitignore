@@ -1,2 +1,5 @@
 *.pyc
-django_cms_dbtemplates.egg-info
+dist
+*.egg-info
+*.egg
+build
