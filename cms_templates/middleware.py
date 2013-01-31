@@ -64,7 +64,7 @@ class DBTemplatesMiddleware(object):
     def process_request(self, request):
 
         site_id = request.session.get('cms_admin_site', settings.SITE_ID)
-        t = get_restricted_instances(Template, site_id, shared_sites, include_orphan)
+        t = get_restricted_instances(Template, site_id, shared_sites)
         CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in t]
         if not CMS_TEMPLATES.value:
             CMS_TEMPLATES.value = [('dummy',
