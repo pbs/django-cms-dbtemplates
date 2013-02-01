@@ -343,8 +343,8 @@ class TestLoader(TestCase):
             django_settings.SITE_ID = site1.id
             
             t1_shared = Template.objects.create(name='shared.html', content='shared')
-            t1_shared.sites.add(shared_site)
-            t1_shared.sites.add(site1)
+            #shared template belongs to both sites
+            t1_shared.sites.add(shared_site, site1)
 
             t1_s1 = Template.objects.create(name='site1.html', content='site1')
             t1_s1.sites.add(site1)        
