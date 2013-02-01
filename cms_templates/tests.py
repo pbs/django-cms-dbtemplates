@@ -285,3 +285,78 @@ class TestDecorators(TestCase):
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.has_delete_permission(self.request, self.template), False)
+
+
+from django.conf import settings as django_settings
+from django.contrib.sites.models import Site
+from django.template import loader, Context, TemplateDoesNotExist
+from mock import patch
+
+class TestLoader(TestCase):
+
+    def tearDown(self):
+        #flush db
+        super(TestCase, self)._fixture_setup()
+
+    
+    def test_shared_site_template(self):
+        with patch('cms_templates.loader.shared_sites') as mock:
+            mock.return_value = ['SHARED_SITE']
+        
+            shared_site = Site.objects.create(domain="shared_site.org", name="SHARED_SITE")
+            site1 = Site.objects.create(domain="site1.org", name="site1")
+            site2 = Site.objects.create(domain="site2.org", name="site2")
+        
+            t1_shared = Template.objects.create(name='shared.html', content='shared')
+            t1_shared.sites.add(shared_site)
+
+            t1_s1 = Template.objects.create(name='site1.html', content='site1')
+            t1_s1.sites.add(site1)        
+        
+            t2_s2 = Template.objects.create(name='site2.html', content='site2')
+            t2_s2.sites.add(site2)
+                                  
+            django_settings.SITE_ID = site1.id
+            tpl = loader.get_template('site1.html')
+            self.assertEqual(tpl.render(Context({})), 'site1')
+            #test that template assigned to the shared site (SHARED_SITE) is available for site1
+            tpl = loader.get_template('shared.html')
+            self.assertEqual(tpl.render(Context({})), 'shared')
+            self.assertRaises(TemplateDoesNotExist, loader.get_template, "site2.html")
+                                  
+            django_settings.SITE_ID = site2.id
+            tpl = loader.get_template('site2.html')
+            self.assertEqual(tpl.render(Context({})), 'site2')
+            #test that template assigned to the shared site (SHARED_SITE) is available for site2
+            tpl = loader.get_template('shared.html')
+            self.assertEqual(tpl.render(Context({})), 'shared')
+            self.assertRaises(TemplateDoesNotExist, loader.get_template, "site1.html")
+            
+    def test_shared_template_assigned_to_another_site(self):
+        #test that no exception is raised because the shared template belongs to both shared site and site1
+        with patch('cms_templates.loader.shared_sites') as mock:
+            mock.return_value = ['SHARED_SITE']
+        
+            shared_site = Site.objects.create(domain="shared_site.org", name="SHARED_SITE")
+            site1 = Site.objects.create(domain="site1.org", name="site1")
+
+            django_settings.SITE_ID = site1.id
+            
+            t1_shared = Template.objects.create(name='shared.html', content='shared')
+            t1_shared.sites.add(shared_site)
+            t1_shared.sites.add(site1)
+
+            t1_s1 = Template.objects.create(name='site1.html', content='site1')
+            t1_s1.sites.add(site1)        
+
+            tpl = loader.get_template('shared.html')
+            self.assertEqual(tpl.render(Context({})), 'shared')
+            
+    def test_orphan(self):
+        #test that the orphan site can be loaded
+        site1 = Site.objects.create(domain="site1.org", name="site1")
+
+        django_settings.SITE_ID = site1.id
+        t_orphan = Template.objects.create(name='orphan.html', content='orphan')
+
+        self.assertEqual(loader.get_template('orphan.html').render(Context({})), 'orphan')
