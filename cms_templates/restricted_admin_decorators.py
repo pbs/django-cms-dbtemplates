@@ -112,7 +112,7 @@ def restricted_change_view(restrict_user=False, shared_sites=(), **kw):
         return cls
     return _change_view
 
-def get_restricted_instances(model, site_id=None, shared_sites=(), include_orphan=False):
+def get_restricted_instances(model, site_id=None, shared_sites=()):
     if not issubclass(model, Model):
         raise TypeError('%s should be a django model.' % model.__name__)
 
@@ -122,6 +122,4 @@ def get_restricted_instances(model, site_id=None, shared_sites=(), include_orpha
         f = Q(sites=Site.objects.get_current())
     if shared_sites:
         f |= Q(sites__name__in=shared_sites)
-    if include_orphan:
-        f |= Q(sites__isnull=True)
     return model.objects.filter(f).distinct()
