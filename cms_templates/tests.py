@@ -332,7 +332,7 @@ class TestLoader(TestCase):
             self.assertEqual(tpl.render(Context({})), 'shared')
             self.assertRaises(TemplateDoesNotExist, loader.get_template, "site1.html")
             
-    def test_shared_template_assigned_to_another_site(self):
+    def test_shared_template_assigned_also_to_another_site(self):
         #test that no exception is raised because the shared template belongs to both shared site and site1
         with patch('cms_templates.loader.shared_sites') as mock:
             mock.return_value = ['SHARED_SITE']
