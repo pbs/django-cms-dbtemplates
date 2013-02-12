@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 import os
-from setuptools import setup, find_packages
+import sys
+from setuptools import setup, find_packages, Command
 
 README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                            'README.rst')
 
 dependencies = [
-    'django-dynamic-fixture==1.6.4'
 ]
 
 dependency_links = [
+    'http://github.com/pbs/django-dbtemplates/tarball/master#egg=django-dbtemplates-1.4.1pbs',
 ]
+
+
 
 setup(
     name='django-cms-dbtemplates',
@@ -24,5 +27,16 @@ setup(
     include_package_data=True,
     install_requires = dependencies,
     dependency_links = dependency_links,
-    setup_requires = ['s3sourceuploader',],
+    setup_requires = [
+        's3sourceuploader',
+        'nose',
+    ],
+    tests_require = [
+        "django-dynamic-fixture==1.6.4",
+        "Django==1.4.1",
+        "django-dbtemplates==1.4.1pbs",
+        "django-cms==2.3.3"
+    ],
+    test_suite = 'pbs_test_runner.django',
+    # test_suite = 'nose.collector',
 )
