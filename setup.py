@@ -28,14 +28,16 @@ setup(
     dependency_links = dependency_links,
     setup_requires = [
         's3sourceuploader',
-        'nose',
     ],
     tests_require = [
-        "django-dynamic-fixture==1.6.4",
-        "Django==1.4.1",
-        "django-dbtemplates==1.4.1pbs",
-        "django-cms==2.3.3"
+        'django-dynamic-fixture==1.6.4',
+        'Django==1.4.1',
+        'django-dbtemplates==1.4.1pbs',
+        'django-cms==2.3.3',
+        'nose',
+        'django-nose',
     ],
-    test_suite = 'pbs_test_runner.django',
+    # test_suite = 'pbs_test_runner.DjangoTestCase',
+    test_suite = 'pbs_test_runner.NoseTestCase',
     # test_suite = 'nose.collector',
 )
