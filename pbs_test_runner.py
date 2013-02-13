@@ -69,10 +69,6 @@ custom_settings = {
 
 urlpatterns=[]
 
-def _url_patterns():
-    from django.conf.urls.defaults import patterns, url, include
-    from django.contrib import admin
-    return patterns('', url(r'^admin/', include(admin.site.urls)))
 
 import unittest
 
@@ -86,7 +82,6 @@ class SimpleTestCase(unittest.TestCase):
 
 
 def django():
-    global urlpatterns
     def _setup_settings():
         from django.conf import settings
         settings.configure(**custom_settings)
@@ -95,6 +90,15 @@ def django():
         from django.contrib import admin
         admin.autodiscover()
         return settings
+
+    # ugly hack to get arround imports cycle ( settings needs to be
+    # configured to be able to use other django imports)
+    global urlpatterns
+    def _url_patterns():
+        from django.conf.urls.defaults import patterns, url, include
+        from django.contrib import admin
+        return patterns('', url(r'^admin/', include(admin.site.urls)))
+
     _settings = _setup_settings()
     urlpatterns = _url_patterns()
     from django.test.utils import get_runner
