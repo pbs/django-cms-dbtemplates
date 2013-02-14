@@ -38,6 +38,6 @@ setup(
         'django-nose',
     ],
     # test_suite = 'pbs_test_runner.DjangoTestCase',
-    test_suite = 'pbs_test_runner.NoseTestCase',
+    test_suite = 'runtests.runtests',
     # test_suite = 'nose.collector',
 )
