@@ -6,11 +6,13 @@ README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                            'README.rst')
 
 dependencies = [
-    'django-dynamic-fixture==1.6.4'
 ]
 
 dependency_links = [
+    'http://github.com/pbs/django-dbtemplates/tarball/master#egg=django-dbtemplates-1.4.1pbs',
 ]
+
+
 
 setup(
     name='django-cms-dbtemplates',
@@ -24,5 +26,14 @@ setup(
     include_package_data=True,
     install_requires = dependencies,
     dependency_links = dependency_links,
-    setup_requires = ['s3sourceuploader',],
+    setup_requires = [
+        's3sourceuploader',
+    ],
+    tests_require = [
+        'django-dynamic-fixture',
+        'django-dbtemplates==1.4.1pbs',
+        'django-cms==2.3.3',
+        'django-nose',
+    ],
+    test_suite = 'runtests.runtests',
 )
