@@ -30,11 +30,9 @@ setup(
         's3sourceuploader',
     ],
     tests_require = [
-        'django-dynamic-fixture==1.6.4',
-        'Django==1.4.1',
+        'django-dynamic-fixture',
         'django-dbtemplates==1.4.1pbs',
         'django-cms==2.3.3',
-        'nose',
         'django-nose',
     ],
     # test_suite = 'pbs_test_runner.DjangoTestCase',
