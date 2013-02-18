@@ -39,7 +39,7 @@ TEMPLATE_CONTEXT_PROCESSORS = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME' : '/tmp/bento.db', # Or path to database file if using sqlite3.
+        'NAME' : 'test.db', # Or path to database file if using sqlite3.
         'USER' : '', # Not used with sqlite3.
         'PASSWORD' : '', # Not used with sqlite3.
         'HOST' : '', # Set to empty string for localhost. Not used with sqlite3.
@@ -51,20 +51,17 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
 
-        'cms_templates.middleware.SiteIDPatchMiddleware',
+    'cms_templates.middleware.SiteIDPatchMiddleware',
     'cms_templates.middleware.DBTemplatesMiddleware',
 
-        'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
 
-        # djangos-cms specific
+    # djangos-cms specific
     # Not using multilingual fixes the login bug caused by dynamic site-id hack
     # 'cms.middleware.multilingual.MultilingualURLMiddleware',
     'cms.middleware.page.CurrentPageMiddleware',
     'cms.middleware.user.CurrentUserMiddleware',
     'cms.middleware.toolbar.ToolbarMiddleware',
-    # for basic http auth
-    # 'multisiteauth.middleware.BasicAuthProtectionMiddleware',
-    # 'django.middleware.cache.FetchFromCacheMiddleware',
 )

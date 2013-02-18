@@ -1,5 +1,6 @@
 import os
 import sys
+import unittest
 from os.path import dirname, abspath
 from optparse import OptionParser
 
@@ -25,7 +26,13 @@ def runtests(*test_args, **kwargs):
     test_runner = NoseTestSuiteRunner(**kwargs)
     failures = test_runner.run_tests(test_args)
 
-    sys.exit(failures)
+    class TestWrapper(unittest.TestCase):
+        def setUp(self):
+            pass
+        def runTest(self):
+            self.assertEqual(failures, 0)
+
+    return TestWrapper()
 
 if __name__ == '__main__':
     parser = OptionParser()

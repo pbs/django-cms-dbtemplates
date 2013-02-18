@@ -35,7 +35,5 @@ setup(
         'django-cms==2.3.3',
         'django-nose',
     ],
-    # test_suite = 'pbs_test_runner.DjangoTestCase',
     test_suite = 'runtests.runtests',
-    # test_suite = 'nose.collector',
 )
