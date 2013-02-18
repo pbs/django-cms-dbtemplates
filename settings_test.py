@@ -23,7 +23,7 @@ CMS_MODERATOR = True
 CMS_PERMISSION = True
 STATIC_ROOT = '/static/'
 STATIC_URL = '/static/'
-ROOT_URLCONF = 'pbs_test_runner'
+ROOT_URLCONF = 'urls_test'
 TEMPLATE_CONTEXT_PROCESSORS = [
     "django.contrib.auth.context_processors.auth",
     'django.contrib.messages.context_processors.messages',
