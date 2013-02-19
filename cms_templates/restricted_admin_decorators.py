@@ -2,6 +2,7 @@ from django.contrib.sites.models import Site
 from django.db.models import Q, Model
 from django.contrib.admin.options import ModelAdmin
 
+
 def throw_error_if_not_ModelAdmin(f):
     def _inner(*args, **kwargs):
         cls = args[0]
@@ -10,12 +11,13 @@ def throw_error_if_not_ModelAdmin(f):
         return f(*args, **kwargs)
     return _inner
 
+
 def restricted_formfield_for_manytomany(restrict_user=False, **kw):
     """Parameterized class decorator used to extend the default "formfield_for_manytomany" behavior of a ModelAdmin derived class.
     """
     @throw_error_if_not_ModelAdmin
     def _formfield_for_manytomany(cls):
-        
+
         def __formfield_for_manytomany(self, db_field, request, **kwargs):
             if db_field.name == "sites":
                 f = Q()
@@ -30,6 +32,7 @@ def restricted_formfield_for_manytomany(restrict_user=False, **kw):
         cls.formfield_for_manytomany = __formfield_for_manytomany
         return cls
     return _formfield_for_manytomany
+
 
 def restricted_queryset(restrict_user=False, shared_sites=(), include_orphan=True, **kw):
     """Parameterized class decorator used to extend the default "queryset" behavior of a ModelAdmin derived class.
@@ -52,7 +55,7 @@ def restricted_queryset(restrict_user=False, shared_sites=(), include_orphan=Tru
 
         cls.queryset = __queryset
         return cls
-        
+
     return _queryset
 
 
@@ -66,14 +69,15 @@ def restricted_get_readonly_fields(restrict_user=False, shared_sites=(), ro=(), 
             if not obj or request.user.is_superuser:
                 return allways
             if restrict_user and shared_sites:
-                if obj.sites.filter(name__in=shared_sites).exists():
+                if obj.sites.filter(name__in=[s.name for s in shared_sites]).exists():
                     return ro
             return allways
-            
+
         cls.get_readonly_fields = __get_readonly_fields
         return cls
-        
+
     return _get_readonly_fields
+
 
 def restricted_has_delete_permission(restrict_user=False, shared_sites=(), **kw):
     """Parameterized class decorator used to extend the default "has_delete_permission" behavior of a ModelAdmin derived class.
@@ -85,32 +89,34 @@ def restricted_has_delete_permission(restrict_user=False, shared_sites=(), **kw)
             if request.user.is_superuser or obj is None:
                 return True
             if restrict_user and shared_sites:
-                return not obj.sites.filter(name__in=shared_sites).exists()
+                return not obj.sites.filter(name__in=[s.name for s in shared_sites]).exists()
             return True
 
         cls.has_delete_permission = __has_delete_permission
         return cls
     return _has_delete_permission
 
+
 def restricted_change_view(restrict_user=False, shared_sites=(), **kw):
     """Parameterized class decorator used to extend the default "change_view" behavior of a ModelAdmin derived class.
     """
     @throw_error_if_not_ModelAdmin
     def _change_view(cls):
-        
+
         def __change_view(self, request, object_id, extra_context=None):
             extra_context = {}
             if not request.user.is_superuser:
                 if restrict_user and shared_sites:
                     obj = self.model.objects.get(pk=object_id)
-                    if obj.sites.filter(name__in=shared_sites).exists():
+                    if obj.sites.filter(name__in=[s.name for s in shared_sites]).exists():
                         extra_context = {'read_only': True}
             return super(cls, self).change_view(request,
                         object_id, extra_context=extra_context)
-            
+
         cls.change_view = __change_view
         return cls
     return _change_view
+
 
 def get_restricted_instances(model, site_id=None, shared_sites=()):
     if not issubclass(model, Model):
@@ -123,3 +129,4 @@ def get_restricted_instances(model, site_id=None, shared_sites=()):
     if shared_sites:
         f |= Q(sites__name__in=shared_sites)
     return model.objects.filter(f).distinct()
+    

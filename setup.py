@@ -30,7 +30,6 @@ setup(
         's3sourceuploader',
     ],
     tests_require = [
-        'django-dynamic-fixture',
         'django-dbtemplates==1.4.1pbs',
         'django-cms==2.3.3',
         'django-nose',
