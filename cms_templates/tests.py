@@ -306,7 +306,7 @@ class TestDecorators(TestCase):
     def test_get_readonly_fields3(self):
         ro=('a', 'b', 'c')
         allways=('e', 'f', 'g')
-        @restricted_get_readonly_fields(restrict_user=True, shared_sites=(self.site1, ), ro=ro, allways=allways)
+        @restricted_get_readonly_fields(restrict_user=True, shared_sites=(self.site1.name, ), ro=ro, allways=allways)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -320,7 +320,7 @@ class TestDecorators(TestCase):
         ro = ('a', 'b', 'c')
         allways = ('e', 'f', 'g')
         site4 = create_site()
-        @restricted_get_readonly_fields(restrict_user=True, shared_sites=(site4, ), ro=ro, allways=allways)
+        @restricted_get_readonly_fields(restrict_user=True, shared_sites=(site4.name, ), ro=ro, allways=allways)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -344,7 +344,7 @@ class TestDecorators(TestCase):
 
     def test_has_delete_permission2(self):
         site4 = create_site()
-        @restricted_has_delete_permission(restrict_user=True, shared_sites=(site4, ))
+        @restricted_has_delete_permission(restrict_user=True, shared_sites=(site4.name, ))
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -355,7 +355,7 @@ class TestDecorators(TestCase):
         self.assertEquals(dma.has_delete_permission(self.request, self.template), True)
 
     def test_has_delete_permission3(self):
-        @restricted_has_delete_permission(restrict_user=True, shared_sites=(self.site1, ))
+        @restricted_has_delete_permission(restrict_user=True, shared_sites=(self.site1.name, ))
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
