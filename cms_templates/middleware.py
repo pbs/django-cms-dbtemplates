@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.http import Http404
 from django.core.urlresolvers import resolve
 from django.db.models import Q
 from djangotoolbox.utils import make_tls_property
@@ -49,6 +50,9 @@ class SiteIDPatchMiddleware(object):
 
         else:
             self.fallback.process_request(request)
+
+        if not settings.__class__.SITE_ID.value:
+            raise Http404
 
     def process_response(self, request, response):
         """
