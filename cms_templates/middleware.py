@@ -79,5 +79,8 @@ class DBTemplatesMiddleware(object):
         all_templates = Template.objects.all().values_list('name')
         choices = [t * 2 for t in all_templates]
         if settings.CMS_TEMPLATE_INHERITANCE:
-            choices += [('INHERIT', 'INHERIT')]
+            choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+                        'Inherit the template of the nearest ancestor')]
         Page._meta.get_field_by_name('template')[0].choices[:] = choices
+        CMS_TEMPLATES.value.append((settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+                                    'Inherit the template of the nearest ancestor'))

@@ -31,7 +31,7 @@ setup(
     ],
     tests_require = [
         'django-dbtemplates==1.4.1pbs',
-        'django-cms==2.3.3',
+        'django-cms==2.3.5pbs',
         'django-nose',
     ],
     test_suite = 'runtests.runtests',
