@@ -7,11 +7,91 @@ from cms.models.permissionmodels import GlobalPagePermission
 from django.contrib.admin.options import ModelAdmin
 from django.test.client import RequestFactory
 from django.core import urlresolvers
+from django.conf import settings
 
-from django_dynamic_fixture import G, get
 
 from restricted_admin_decorators import restricted_has_delete_permission, restricted_get_readonly_fields, restricted_formfield_for_manytomany, restricted_queryset
 
+counter = 0
+def create_site(**kwargs):
+    global counter
+    counter = counter + 1
+    defaults = {
+        "domain": "domain%d.org" % counter,
+        "name": "site%d" % counter,
+        }
+    defaults.update(kwargs)
+    return Site.objects.create(**defaults)
+
+def create_template(**kwargs):
+    global counter
+    counter = counter + 1
+    defaults = {
+        "name": "template%d" % counter,
+        "content": "content%d" % counter,
+        }
+    sites = []
+    if "sites" in kwargs:
+        sites = kwargs["sites"]
+        del kwargs["sites"]
+    defaults.update(kwargs)
+    t = Template(**defaults)
+    t.save()
+    t.sites = sites
+    return t
+
+
+def create_user(**kwargs):
+    global counter
+    counter = counter + 1
+    defaults = {
+        "username": "username%d" % counter,
+        "first_name": "user%d" % counter,
+        "last_name": "luser%d" % counter,
+        "email": "user%d@luser%d.com" % (counter, counter),
+        "password": "password%d" % counter,
+        }
+    groups = []
+    if "groups" in kwargs:
+        groups = kwargs["groups"]
+        del kwargs["groups"]
+    user_permissions = []
+    if "user_permissions" in kwargs:
+        user_permissions = kwargs["user_permissions"]
+        del kwargs["user_permissions"]
+    defaults.update(kwargs)
+    u = User(**defaults)
+    u.save()
+    u.groups = groups
+    u.user_permissions = user_permissions
+    return u
+
+def create_group(**kwargs):
+    global counter
+    counter = counter + 1
+    defaults = {
+        "name": "group%d" % counter,
+        }
+    permissions = []
+    if "permissions" in kwargs:
+        Permissions = kwargs["permissions"]
+        del kwargs["permissions"]
+    defaults.update(kwargs)
+    g = Group(**defaults)
+    g.save()
+    g.permissions = permissions
+    return g
+
+
+def create_globalpagepermission(**kwargs):
+    sites = []
+    if "sites" in kwargs:
+        sites = kwargs["sites"]
+        del kwargs["sites"]
+    gpp = GlobalPagePermission(**kwargs)
+    gpp.save()
+    gpp.sites = sites
+    return gpp
 
 class ToBeDecoratedModelAdmin(ModelAdmin):
     
@@ -36,12 +116,13 @@ class TestDecorators(TestCase):
     db_field = property(_db_field)
 
     def setUp(self):
-        Site.objects.all().delete() # delete example.com
-        self.main_user = G(User)
-        self.site1 = G(Site)
-        self.site2 = G(Site)
-        self.site3 = G(Site)
-        self.template = G(Template, sites=[self.site1, self.site2, self.site3])
+        Site.objects.all().delete()  # delete example.com
+        self.main_user = create_user()
+        self.site1 = create_site()
+        settings.SITE_ID = self.site1.id
+        self.site2 = create_site()
+        self.site3 = create_site()
+        self.template = create_template(sites=[self.site1, self.site2, self.site3])
         self.request = RequestFactory().get(self._admin_url(self.template))
 
     def tearDown(self):
@@ -55,54 +136,54 @@ class TestDecorators(TestCase):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        gpp = G(GlobalPagePermission, sites=[self.site1, self.site2], user=self.main_user)
+        gpp = create_globalpagepermission(sites=[self.site1, self.site2], user=self.main_user)
         dma = DecoratedModelAdmin(Template, admin_site=None)
-        
+
         dma.formfield_for_manytomany(self.db_field, self.request)
-        
+
         self.assertQuerysetEqual(dma._test_sites,
                                       [self.site1.id, self.site2.id, self.site3.id],
                                       lambda o: o.id, ordered=False)
-   
+
     def test_formfield_m2m_restrict_user(self):
 
         @restricted_formfield_for_manytomany(restrict_user=True)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
-        
+
         setattr(self.request, 'user', self.main_user)
-        user2 = G(User)
-        gpp1 = G(GlobalPagePermission, sites=[self.site1], user=self.main_user)
-        gpp2 = G(GlobalPagePermission, sites=[self.site2], user=user2)
+        user2 = create_user()
+        gpp1 = create_globalpagepermission(sites=[self.site1], user=self.main_user)
+        gpp2 = create_globalpagepermission(sites=[self.site2], user=user2)
         dma = DecoratedModelAdmin(Template, admin_site=None)
-        
+
         dma.formfield_for_manytomany(self.db_field, self.request)
-        
+
         self.assertQuerysetEqual(dma._test_sites,
                                       [self.site1.id],
-                                      lambda o : o.id)
+                                      lambda o: o.id)
 
     def test_formfield_m2m_restrict_user_and_user_in_group(self):
 
         @restricted_formfield_for_manytomany(restrict_user=True)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
-        
+
         User.objects.all().delete()
-        group1 = G(Group)
-        group2 = G(Group)
-        self.main_user = G(User, groups=[group1])
+        group1 = create_group()
+        group2 = create_group()
+        self.main_user = create_user(groups=[group1])
         setattr(self.request, 'user', self.main_user)
-        user2 = G(User, groups=[group2])
-        gpp1= G(GlobalPagePermission, sites=[self.site1], group = group1)
-        gpp2= G(GlobalPagePermission, sites=[self.site2], group = group2)
+        user2 = create_user(groups=[group2])
+        gpp1= create_globalpagepermission(sites=[self.site1], group=group1)
+        gpp2= create_globalpagepermission(sites=[self.site2], group=group2)
         dma = DecoratedModelAdmin(Template, admin_site=None)
-        
+
         dma.formfield_for_manytomany(self.db_field, self.request)
-        
+
         self.assertQuerysetEqual(dma._test_sites,
                                  [self.site1.id],
-                                 lambda o : o.id)
+                                 lambda o: o.id)
 
 
     def test_queryset1(self):
@@ -110,12 +191,12 @@ class TestDecorators(TestCase):
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
-        tpl2 = G(Template, sites=[self.site1, self.site2, self.site3])
-        tpl3 = G(Template, sites=[self.site1, self.site2, self.site3])
-        tpl4 = G(Template, sites=[self.site1, self.site2, self.site3])
+        tpl2 = create_template(sites=[self.site1, self.site2, self.site3])
+        tpl3 = create_template(sites=[self.site1, self.site2, self.site3])
+        tpl4 = create_template(sites=[self.site1, self.site2, self.site3])
         
         setattr(self.request, 'user', self.main_user)
-        gpp1 = G(GlobalPagePermission, sites=[self.site1], user=self.main_user)
+        gpp1 = create_globalpagepermission(sites=[self.site1], user=self.main_user)
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertQuerysetEqual(dma.queryset(self.request),
@@ -125,35 +206,35 @@ class TestDecorators(TestCase):
         
     def test_queryset2(self):
 
-        @restricted_queryset(restrict_user=True, shared_sites=(), include_orphan=False)
+        @restricted_queryset(restrict_user=True, shared_sites=[], include_orphan=False)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
-
-        tpl2 = G(Template, sites=[self.site2, self.site3])
-        tpl3 = G(Template, sites=[self.site3])
+        tpl2 = create_template(sites=[self.site2, self.site3])
+        tpl3 = create_template(sites=[self.site3])
         
         setattr(self.request, 'user', self.main_user)
-        gpp1 = G(GlobalPagePermission, sites=[self.site1], user=self.main_user)
+        gpp1 = create_globalpagepermission(sites=[self.site1], user=self.main_user)
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
+        
         self.assertQuerysetEqual(dma.queryset(self.request),
                                  [self.template.id],
-                                 lambda o: o.id)
+                                 lambda o: o.id, ordered=False)
 
     def test_queryset4(self):
-        @restricted_queryset(restrict_user=True, shared_sites=(), include_orphan=False)
+        @restricted_queryset(restrict_user=True, shared_sites=[], include_orphan=False)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
-        tpl2 = G(Template, sites=[self.site2, self.site3])
-        tpl3 = G(Template, sites=[self.site3])
+        tpl2 = create_template(sites=[self.site2, self.site3])
+        tpl3 = create_template(sites=[self.site3])
 
-        group1 = G(Group)
-        self.main_user = G(User, groups=[group1])
+        group1 = create_group()
+        self.main_user = create_user(groups=[group1])
         setattr(self.request, 'user', self.main_user)
         
         setattr(self.request, 'user', self.main_user)
-        gpp1 = G(GlobalPagePermission, sites=[self.site1], group=group1)
+        gpp1 = create_globalpagepermission(sites=[self.site1], group=group1)
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertQuerysetEqual(dma.queryset(self.request),
@@ -161,18 +242,18 @@ class TestDecorators(TestCase):
                                  lambda o: o.id)
 
     def test_queryset5(self):
-        @restricted_queryset(restrict_user=False, shared_sites=(self.site1.name, ), include_orphan=False)
+        @restricted_queryset(restrict_user=False, shared_sites=[self.site1.name], include_orphan=False)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
-        tpl2 = G(Template, sites=[self.site2, self.site3])
-        tpl3 = G(Template, sites=[self.site1, self.site3])
+        tpl2 = create_template(sites=[self.site2, self.site3])
+        tpl3 = create_template(sites=[self.site1, self.site3])
 
-        group1 = G(Group)
-        self.main_user = G(User, groups=[group1])
+        group1 = create_group()
+        self.main_user = create_user(groups=[group1])
         setattr(self.request, 'user', self.main_user)
         
-        gpp1 = G(GlobalPagePermission, sites=[self.site1], group=group1)
+        gpp1 = create_globalpagepermission(sites=[self.site1], group=group1)
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertQuerysetEqual(dma.queryset(self.request),
@@ -180,18 +261,18 @@ class TestDecorators(TestCase):
                                  lambda o: o.id, ordered=False)
 
     def test_queryset6(self):
-        @restricted_queryset(restrict_user=False, shared_sites=(), include_orphan=True)
+        @restricted_queryset(restrict_user=False, shared_sites=[], include_orphan=True)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
-        tpl2 = G(Template, sites=[self.site2, self.site3])
-        tpl3 = G(Template, sites=[]) #this is an orphan template
+        tpl2 = create_template(sites=[self.site2, self.site3])
+        tpl3 = create_template() #this is an orphan template
 
-        group1 = G(Group)
-        self.main_user = G(User, groups=[group1])
+        group1 = create_group()
+        self.main_user = create_user(groups=[group1])
         setattr(self.request, 'user', self.main_user)
         
-        gpp1 = G(GlobalPagePermission, sites=[self.site1], group=group1)
+        gpp1 = create_globalpagepermission(sites=[self.site1], group=group1)
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertQuerysetEqual(dma.queryset(self.request),
@@ -201,7 +282,7 @@ class TestDecorators(TestCase):
     def test_get_readonly_fields1(self):
         ro=('a', 'b', 'c')
         allways=('e', 'f', 'g')
-        @restricted_get_readonly_fields(restrict_user=False, shared_sites=(), ro=ro, allways=allways)
+        @restricted_get_readonly_fields(restrict_user=False, shared_sites=[], ro=ro, allways=allways)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -214,7 +295,7 @@ class TestDecorators(TestCase):
     def test_get_readonly_fields2(self):
         ro=('a', 'b', 'c')
         allways=('e', 'f', 'g')
-        @restricted_get_readonly_fields(restrict_user=False, shared_sites=(), ro=ro, allways=allways)
+        @restricted_get_readonly_fields(restrict_user=False, shared_sites=[], ro=ro, allways=allways)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -227,7 +308,7 @@ class TestDecorators(TestCase):
     def test_get_readonly_fields3(self):
         ro=('a', 'b', 'c')
         allways=('e', 'f', 'g')
-        @restricted_get_readonly_fields(restrict_user=True, shared_sites=(self.site1, ), ro=ro, allways=allways)
+        @restricted_get_readonly_fields(restrict_user=True, shared_sites=[self.site1.name], ro=ro, allways=allways)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -238,10 +319,10 @@ class TestDecorators(TestCase):
         self.assertEquals(dma.get_readonly_fields(self.request, self.template), ro)
 
     def test_get_readonly_fields4(self):
-        ro=('a', 'b', 'c')
-        allways=('e', 'f', 'g')
-        site4 = G(Site)
-        @restricted_get_readonly_fields(restrict_user=True, shared_sites=(site4, ), ro=ro, allways=allways)
+        ro = ('a', 'b', 'c')
+        allways = ('e', 'f', 'g')
+        site4 = create_site()
+        @restricted_get_readonly_fields(restrict_user=True, shared_sites=[site4.name], ro=ro, allways=allways)
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -253,7 +334,7 @@ class TestDecorators(TestCase):
 
         
     def test_has_delete_permission1(self):
-        @restricted_has_delete_permission(restrict_user=True, shared_sites=())
+        @restricted_has_delete_permission(restrict_user=True, shared_sites=[])
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -264,8 +345,8 @@ class TestDecorators(TestCase):
         self.assertEquals(dma.has_delete_permission(self.request), True)
 
     def test_has_delete_permission2(self):
-        site4 = G(Site)
-        @restricted_has_delete_permission(restrict_user=True, shared_sites=(site4, ))
+        site4 = create_site()
+        @restricted_has_delete_permission(restrict_user=True, shared_sites=[site4.name])
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
@@ -276,7 +357,7 @@ class TestDecorators(TestCase):
         self.assertEquals(dma.has_delete_permission(self.request, self.template), True)
 
     def test_has_delete_permission3(self):
-        @restricted_has_delete_permission(restrict_user=True, shared_sites=(self.site1, ))
+        @restricted_has_delete_permission(restrict_user=True, shared_sites=[self.site1.name])
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
