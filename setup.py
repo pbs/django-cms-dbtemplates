@@ -6,7 +6,8 @@ README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                            'README.rst')
 
 dependencies = [
-    'django-dynamic-fixture==1.6.4'
+    'django-dynamic-fixture==1.6.4',
+    'mock==1.0.1',
 ]
 
 dependency_links = [
