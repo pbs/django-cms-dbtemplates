@@ -30,7 +30,7 @@ setup(
         'django-dbtemplates==1.4.1pbs',
     ],
     tests_require=[
-        'django-cms==2.3.5',
+        'django-cms==2.3.3',
         'django-nose',
         'mock==1.0.1',
     ],
