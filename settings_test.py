@@ -65,3 +65,14 @@ MIDDLEWARE_CLASSES = (
     'cms.middleware.user.CurrentUserMiddleware',
     'cms.middleware.toolbar.ToolbarMiddleware',
 )
+
+# List of callables that know how to import templates from various sources.
+TEMPLATE_LOADERS = (
+    'django.template.loaders.filesystem.Loader',
+    'django.template.loaders.app_directories.Loader',
+    'django.template.loaders.eggs.Loader',
+    'cms_templates.loader.CmsTemplatesLoader',
+    )
+
+
+LANGUAGE_CODE = "en-US"

@@ -21,7 +21,7 @@ def _get_registered_modeladmin(model):
         a different modeladmin for this model. """
     return type(admin.site._registry[model])
 
-            
+
 allways = ('creation_date', 'last_changed')
 ro = ('name', 'content', 'sites') + allways
 
@@ -34,7 +34,17 @@ class RestrictedTemplateAdmin(_get_registered_modeladmin(Template)):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
 
-    
+
+class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
+    def get_form(self, request, obj=None, **kwargs):
+        f = super(DynamicTemplatesPageAdmin, self).get_form(
+                request, obj, **kwargs)
+        choices = settings.CMS_TEMPLATES
+        # if settings.CMS_TEMPLATE_INHERITANCE:
+        #     choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+        #                'Inherit the template of the nearest ancestor')]
+        f.base_fields['template'].choices = choices
+        return f
 
 RegisteredSiteAdmin = _get_registered_modeladmin(Site)
 SiteAdminForm = RegisteredSiteAdmin.form
@@ -98,6 +108,12 @@ try:
 except NotRegistered:
     pass
 admin.site.register(Template, RestrictedTemplateAdmin)
+
+try:
+    admin.site.unregister(Page)
+except NotRegistered:
+    pass
+admin.site.register(Page, DynamicTemplatesPageAdmin)
 
 try:
     admin.site.unregister(Site)

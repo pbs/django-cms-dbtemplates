@@ -14,6 +14,7 @@ from settings import shared_sites, include_orphan
 from restricted_admin_decorators import get_restricted_instances
 
 CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES = make_tls_property()
+CMS_TEMPLATE_INHERITANCE_TITLE = 'Inherit the template of the nearest ancestor'
 
 
 class SiteIDPatchMiddleware(object):
@@ -60,13 +61,13 @@ class SiteIDPatchMiddleware(object):
         'Host' header as a key to cache responses.
         Used by django.middleware.cache
         """
+
         patch_vary_headers(response, ('Host',))
         return response
 
 
 class DBTemplatesMiddleware(object):
     def process_request(self, request):
-
         site_id = request.session.get('cms_admin_site', settings.SITE_ID)
         t = get_restricted_instances(Template, site_id, shared_sites)
         CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in t]
@@ -80,7 +81,7 @@ class DBTemplatesMiddleware(object):
         choices = [t * 2 for t in all_templates]
         if settings.CMS_TEMPLATE_INHERITANCE:
             choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
-                        'Inherit the template of the nearest ancestor')]
+                         CMS_TEMPLATE_INHERITANCE_TITLE)]
         Page._meta.get_field_by_name('template')[0].choices[:] = choices
         CMS_TEMPLATES.value.append((settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
-                                    'Inherit the template of the nearest ancestor'))
+                                    CMS_TEMPLATE_INHERITANCE_TITLE))

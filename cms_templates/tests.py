@@ -1,14 +1,15 @@
-
 from django.test import TestCase
 from dbtemplates.models import Template
 from django.contrib.sites.models import Site
 from django.contrib.auth.models import User, Group
-from cms.models.permissionmodels import GlobalPagePermission
 from django.contrib.admin.options import ModelAdmin
 from django.test.client import RequestFactory
 from django.core import urlresolvers
-
-
+from django.conf import settings
+from cms.models.permissionmodels import GlobalPagePermission
+from cms.test_utils.testcases import CMSTestCase
+from cms.models import Page, Title
+from urlparse import urljoin
 from restricted_admin_decorators import restricted_has_delete_permission, restricted_get_readonly_fields, restricted_formfield_for_manytomany, restricted_queryset
 
 counter = 0
@@ -93,15 +94,15 @@ def create_globalpagepermission(**kwargs):
     return gpp
 
 class ToBeDecoratedModelAdmin(ModelAdmin):
-    
+
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         self._test_sites = kwargs['queryset']
-        return None    
-    
+        return None
+
     def queryset(self, restrict_user=False, shared_sites=[], include_orphan=True, **kw):
         return self.model._default_manager.get_query_set()
 
-        
+
 class TestDecorators(TestCase):
 
     def _admin_url(self, template):
@@ -192,7 +193,7 @@ class TestDecorators(TestCase):
         tpl2 = create_template(sites=[self.site1, self.site2, self.site3])
         tpl3 = create_template(sites=[self.site1, self.site2, self.site3])
         tpl4 = create_template(sites=[self.site1, self.site2, self.site3])
-        
+
         setattr(self.request, 'user', self.main_user)
         gpp1 = create_globalpagepermission(sites=[self.site1], user=self.main_user)
         dma = DecoratedModelAdmin(Template, admin_site=None)
@@ -200,8 +201,8 @@ class TestDecorators(TestCase):
         self.assertQuerysetEqual(dma.queryset(self.request),
                                  [self.template.id, tpl2.id, tpl3.id, tpl4.id],
                                  lambda o: o.id, ordered=False)
-        
-        
+
+
     def test_queryset2(self):
 
         @restricted_queryset(restrict_user=True, shared_sites=[], include_orphan=False)
@@ -209,12 +210,12 @@ class TestDecorators(TestCase):
             pass
         tpl2 = create_template(sites=[self.site2, self.site3])
         tpl3 = create_template(sites=[self.site3])
-        
+
         setattr(self.request, 'user', self.main_user)
         gpp1 = create_globalpagepermission(sites=[self.site1], user=self.main_user)
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
-        
+
         self.assertQuerysetEqual(dma.queryset(self.request),
                                  [self.template.id],
                                  lambda o: o.id, ordered=False)
@@ -230,7 +231,7 @@ class TestDecorators(TestCase):
         group1 = create_group()
         self.main_user = create_user(groups=[group1])
         setattr(self.request, 'user', self.main_user)
-        
+
         setattr(self.request, 'user', self.main_user)
         gpp1 = create_globalpagepermission(sites=[self.site1], group=group1)
         dma = DecoratedModelAdmin(Template, admin_site=None)
@@ -250,7 +251,7 @@ class TestDecorators(TestCase):
         group1 = create_group()
         self.main_user = create_user(groups=[group1])
         setattr(self.request, 'user', self.main_user)
-        
+
         gpp1 = create_globalpagepermission(sites=[self.site1], group=group1)
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
@@ -269,7 +270,7 @@ class TestDecorators(TestCase):
         group1 = create_group()
         self.main_user = create_user(groups=[group1])
         setattr(self.request, 'user', self.main_user)
-        
+
         gpp1 = create_globalpagepermission(sites=[self.site1], group=group1)
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
@@ -285,7 +286,7 @@ class TestDecorators(TestCase):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        
+
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.get_readonly_fields(self.request), allways)
@@ -298,7 +299,7 @@ class TestDecorators(TestCase):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        
+
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.get_readonly_fields(self.request, self.template), allways)
@@ -311,7 +312,7 @@ class TestDecorators(TestCase):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        
+
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.get_readonly_fields(self.request, self.template), ro)
@@ -325,19 +326,19 @@ class TestDecorators(TestCase):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        
+
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.get_readonly_fields(self.request, self.template), allways)
 
-        
+
     def test_has_delete_permission1(self):
         @restricted_has_delete_permission(restrict_user=True, shared_sites=[])
         class DecoratedModelAdmin(ToBeDecoratedModelAdmin):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        
+
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.has_delete_permission(self.request), True)
@@ -349,7 +350,7 @@ class TestDecorators(TestCase):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        
+
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.has_delete_permission(self.request, self.template), True)
@@ -360,7 +361,103 @@ class TestDecorators(TestCase):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        
+
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.has_delete_permission(self.request, self.template), False)
+
+
+URL_CMS_PAGE = '/admin/cms/page/'
+URL_CMS_PAGE_ADD = urljoin(URL_CMS_PAGE, 'add/')
+
+
+class AdminParentChildInheritTest(CMSTestCase):
+    """
+    Creates two pages, Parent and Child both with the same template assigned.
+    Changes the Child's template to inherit.
+    """
+
+    def setUp(self):
+        """Creates the test site, and the two templates"""
+        self.site = Site.objects.create(domain="testserver", name="sample")
+        settings.SITE_ID = self.site.pk
+        first_template, _ = Template.objects.get_or_create(name='first.html',
+                                                           content='foo',)
+        second_template, _ = Template.objects.get_or_create(name='second.html',
+                                                            content='bar',)
+        first_template.sites.add(self.site)
+        second_template.sites.add(self.site)
+
+    def test_set_template_to_inherit(self):
+        """
+        Creates Parent and Child pages. 
+        Sets the child's template to inherit.
+        """ 
+        parent_id = self._create_page('first.html', 'parent', 'parent')
+        child_id = self._create_page('second.html', 'child', 'child', parent_id)
+        superuser = self.get_superuser()
+        with self.login_user_context(superuser):
+            page_data = self.get_new_page_data()
+            page_data.update({
+                    'template': settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+                    'site': self.site.pk,
+                    'slug': 'child',
+                    'title': 'child',
+                    'parent': parent_id,
+                    })
+            url_format = urljoin(URL_CMS_PAGE, '{page_id}/')
+            page_url = url_format.format(page_id=child_id)
+            response = self.client.get(page_url)
+            self.assertEqual(response.status_code, 200)
+            response = self.client.post(page_url, page_data)
+            self.assertRedirects(response, URL_CMS_PAGE)
+            page = Page.objects.get(pk=child_id)
+            self.assertEqual(page.template, 
+                             settings.CMS_TEMPLATE_INHERITANCE_MAGIC)
+
+    def test_create_page(self):
+        """Test that a page can be created via the admin"""
+        self._create_page(template='second.html',
+                          slug='my_slug',
+                          title='my_title',)
+
+    def test_templates_created(self):
+        """Tests that two templates are created, first and second"""
+        self.assertEqual(2, len(Template.objects.all()))
+        self.assertIsNot(Template.objects.get(name='first.html'), [])
+        self.assertIsNot(Template.objects.get(name='second.html'), [])
+
+    def test_site_created(self):
+        """Tests that the site was created successfuly"""
+        site = Site.objects.get(name='sample')
+        self.assertIsNot(site, [])
+
+    def _create_page(self, template, slug, title, parent_id=None):
+        """
+        Creates a page with the template, slug, title, and parent.
+        Returns the response from the request.
+        """
+        page_data = self.get_new_page_data()
+        page_data.update({
+                'template': template,
+                'site': self.site.pk,
+                'slug': slug,
+                'title': title,
+                'parent': parent_id or '',
+                })
+        superuser = self.get_superuser()
+        with self.login_user_context(superuser):
+            response = self.client.post(URL_CMS_PAGE_ADD, page_data)
+            self.assertRedirects(response, URL_CMS_PAGE)
+            title = Title.objects.get(slug=page_data['slug'])
+            self.assertIsNot(title, [])
+            page = title.page
+            page.published = True
+            page.save()
+            self.assertEqual(page.get_title(), page_data['title'])
+            self.assertEqual(page.parent_id, parent_id)
+            self.assertEqual(page.get_slug(), page_data['slug'])
+            title = Title.objects.drafts().get(slug=page_data['slug'])
+            self.assertIsNot(title, [])
+            return page.id
+

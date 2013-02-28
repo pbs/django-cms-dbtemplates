@@ -9,7 +9,8 @@ dependencies = [
 ]
 
 dependency_links = [
-    'http://github.com/pbs/django-dbtemplates/tarball/master#egg=django-dbtemplates-1.4.1pbs',
+    'http://github.com/pbs/django-dbtemplates/tarball/develop#egg=django-dbtemplates-1.4.1pbs',
+    'http://github.com/pbs/django-cms/tarball/support/2.3.x#egg=django-cms-2.3.5pbs',
 ]
 
 
@@ -27,12 +28,13 @@ setup(
     install_requires = dependencies,
     dependency_links = dependency_links,
     setup_requires = [
+        'django-dbtemplates==1.4.1pbs',
+        'django-cms==2.3.5pbs',
         's3sourceuploader',
     ],
     tests_require = [
-        'django-dbtemplates==1.4.1pbs',
-        'django-cms==2.3.5pbs',
         'django-nose',
+        'djangotoolbox',
     ],
     test_suite = 'runtests.runtests',
 )
