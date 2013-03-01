@@ -9,30 +9,30 @@ dependencies = [
 ]
 
 dependency_links = [
-    'http://github.com/pbs/django-dbtemplates/tarball/master#egg=django-dbtemplates-1.4.1pbs',
+    'http://github.com/pbs/django-dbtemplates/tarball/develop#egg=django-dbtemplates-1.4.1pbs',
 ]
-
 
 
 setup(
     name='django-cms-dbtemplates',
     version='0.4',
     description='Integrate django-cms and django-dbtemplates',
-    long_description = open(README_PATH, 'r').read(),
+    long_description=open(README_PATH, 'r').read(),
     author='Sever Banesiu',
     author_email='banesiu.sever@gmail.com',
     url='https://github.com/pbs/django-cms-dbtemplates',
-    packages = find_packages(),
+    packages=find_packages(),
     include_package_data=True,
-    install_requires = dependencies,
-    dependency_links = dependency_links,
-    setup_requires = [
+    install_requires=dependencies,
+    dependency_links=dependency_links,
+    setup_requires=[
         's3sourceuploader',
-    ],
-    tests_require = [
         'django-dbtemplates==1.4.1pbs',
+    ],
+    tests_require=[
         'django-cms==2.3.3',
         'django-nose',
+        'mock==1.0.1',
     ],
-    test_suite = 'runtests.runtests',
+    test_suite='runtests.runtests',
 )
