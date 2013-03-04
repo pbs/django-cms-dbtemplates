@@ -14,27 +14,30 @@ dependency_links = [
 ]
 
 
-
 setup(
     name='django-cms-dbtemplates',
-    version='0.3',
+    version='0.4',
     description='Integrate django-cms and django-dbtemplates',
-    long_description = open(README_PATH, 'r').read(),
+    long_description=open(README_PATH, 'r').read(),
     author='Sever Banesiu',
     author_email='banesiu.sever@gmail.com',
     url='https://github.com/pbs/django-cms-dbtemplates',
-    packages = find_packages(),
+    packages=find_packages(),
     include_package_data=True,
-    install_requires = dependencies,
-    dependency_links = dependency_links,
-    setup_requires = [
+    install_requires=dependencies,
+    dependency_links=dependency_links,
+    setup_requires=[
+        's3sourceuploader',
+        'django-dbtemplates==1.4.1pbs',
         'django-dbtemplates==1.4.1pbs',
         'django-cms==2.3.5pbs',
-        's3sourceuploader',
     ],
-    tests_require = [
+    tests_require=[
+        'django-cms==2.3.5pbs',
+        'django-nose',
+        'mock==1.0.1',
         'django-nose',
         'djangotoolbox',
     ],
-    test_suite = 'runtests.runtests',
+    test_suite='runtests.runtests',
 )

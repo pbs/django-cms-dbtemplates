@@ -40,9 +40,6 @@ class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
         f = super(DynamicTemplatesPageAdmin, self).get_form(
                 request, obj, **kwargs)
         choices = settings.CMS_TEMPLATES
-        # if settings.CMS_TEMPLATE_INHERITANCE:
-        #     choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
-        #                'Inherit the template of the nearest ancestor')]
         f.base_fields['template'].choices = choices
         return f
 

@@ -119,6 +119,7 @@ class TestDecorators(TestCase):
         Site.objects.all().delete()  # delete example.com
         self.main_user = create_user()
         self.site1 = create_site()
+        settings.__class__.SITE_ID = self.site1.id
         self.site2 = create_site()
         self.site3 = create_site()
         self.template = create_template(sites=[self.site1, self.site2, self.site3])
@@ -367,6 +368,71 @@ class TestDecorators(TestCase):
         self.assertEquals(dma.has_delete_permission(self.request, self.template), False)
 
 
+from django.contrib.sites.models import Site
+from django.template import loader, Context, TemplateDoesNotExist
+from mock import patch
+
+class TestLoader(TestCase):
+
+    def test_shared_site_template(self):
+        with patch('cms_templates.loader.shared_sites') as mock:
+            mock.return_value = ['SHARED_SITE']
+            shared_site = Site.objects.create(domain="shared_site.org", name="SHARED_SITE")
+            site1 = Site.objects.create(domain="site1.org", name="site1")
+            settings.__class__.SITE_ID = site1.id
+            site2 = Site.objects.create(domain="site2.org", name="site2")
+
+            t1_shared = Template.objects.create(name='shared.html', content='shared')
+            t1_shared.sites.clear()
+            t1_shared.sites.add(shared_site)
+            t1_s1 = Template.objects.create(name='site1.html', content='site1')
+            t1_s1.sites.clear()
+            t1_s1.sites.add(site1)
+
+            t2_s2 = Template.objects.create(name='site2.html', content='site2')
+            t2_s2.sites.clear()
+            t2_s2.sites.add(site2)
+
+            tpl = loader.get_template('site1.html')
+            self.assertEqual(tpl.render(Context({})), 'site1')
+                #test that template assigned to the shared site (SHARED_SITE) is available for site1
+            tpl = loader.get_template('shared.html')
+            self.assertEqual(tpl.render(Context({})), 'shared')
+
+            self.assertRaises(TemplateDoesNotExist, loader.get_template, "site2.html")
+
+
+    def test_shared_template_assigned_also_to_another_site(self):
+        #test that no exception is raised because the shared template belongs to both shared site and site1
+        with patch('cms_templates.loader.shared_sites') as mock:
+            mock.return_value = ['SHARED_SITE']
+
+            shared_site = Site.objects.create(domain="shared_site.org", name="SHARED_SITE")
+            site1 = Site.objects.create(domain="site1.org", name="site1")
+
+            settings.__class__.SITE_ID = site1.id
+
+            t1_shared = Template.objects.create(name='shared.html', content='shared')
+            #shared template belongs to both sites
+            t1_shared.sites.clear()
+            t1_shared.sites.add(shared_site, site1)
+
+            t1_s1 = Template.objects.create(name='site1.html', content='site1')
+            t1_s1.sites.clear()
+            t1_s1.sites.add(site1)
+
+            tpl = loader.get_template('shared.html')
+            self.assertEqual(tpl.render(Context({})), 'shared')
+
+    def test_orphan(self):
+        #test that the orphan site can be loaded
+        site1 = Site.objects.create(domain="site1.org", name="site1")
+
+        settings.__class__.SITE_ID = site1.id
+        t_orphan = Template.objects.create(name='orphan.html', content='orphan')
+
+        self.assertEqual(loader.get_template('orphan.html').render(Context({})), 'orphan')
+
 URL_CMS_PAGE = '/admin/cms/page/'
 URL_CMS_PAGE_ADD = urljoin(URL_CMS_PAGE, 'add/')
 
@@ -376,25 +442,50 @@ class AdminParentChildInheritTest(CMSTestCase):
     Creates two pages, Parent and Child both with the same template assigned.
     Changes the Child's template to inherit.
     """
+    template_content = """
+        {% load cms_tags sekizai_tags %}
+        <!doctype html>
+        <head>
+          <title>{{ request.current_page.get_title }}</title>
+          {% render_block "css" %}
+        </head>
+        <body>
+        {% cms_toolbar %}
+            {% placeholder "main" %}
+            <!--second_placeholder-->
+        {% render_block "js" %}
+        </body>
+        </html>
+        """
 
     def setUp(self):
         """Creates the test site, and the two templates"""
         self.site = Site.objects.create(domain="testserver", name="sample")
-        settings.SITE_ID = self.site.pk
-        first_template, _ = Template.objects.get_or_create(name='first.html',
-                                                           content='foo',)
-        second_template, _ = Template.objects.get_or_create(name='second.html',
-                                                            content='bar',)
+        settings.__class__.SITE_ID = self.site.id
+        first_data = self.template_content
+        second_data = self.template_content.replace(
+            '<!--second_placeholder-->', '{% placeholder "content" %}'
+            )
+        first_template, _ = Template.objects.get_or_create(
+            name='first.html', content=first_data
+            )
+        second_template, _ = Template.objects.get_or_create(
+            name='second.html', content=second_data
+            )
         first_template.sites.add(self.site)
         second_template.sites.add(self.site)
 
     def test_set_template_to_inherit(self):
         """
-        Creates Parent and Child pages. 
+        Creates Parent and Child pages.
         Sets the child's template to inherit.
-        """ 
-        parent_id = self._create_page('first.html', 'parent', 'parent')
-        child_id = self._create_page('second.html', 'child', 'child', parent_id)
+        """
+        parent_id = self._create_page(
+            'first.html', 'parent', 'parent'
+            )
+        child_id = self._create_page(
+            'second.html', 'child', 'child', parent_id
+            )
         superuser = self.get_superuser()
         with self.login_user_context(superuser):
             page_data = self.get_new_page_data()
@@ -412,7 +503,7 @@ class AdminParentChildInheritTest(CMSTestCase):
             response = self.client.post(page_url, page_data)
             self.assertRedirects(response, URL_CMS_PAGE)
             page = Page.objects.get(pk=child_id)
-            self.assertEqual(page.template, 
+            self.assertEqual(page.template,
                              settings.CMS_TEMPLATE_INHERITANCE_MAGIC)
 
     def test_create_page(self):
@@ -460,4 +551,3 @@ class AdminParentChildInheritTest(CMSTestCase):
             title = Title.objects.drafts().get(slug=page_data['slug'])
             self.assertIsNot(title, [])
             return page.id
-

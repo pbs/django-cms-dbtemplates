@@ -47,12 +47,12 @@ class SiteIDPatchMiddleware(object):
                 pass
 
         if match.app_name == 'admin' and session_site_id is not None:
-            settings.__class__.SITE_ID.value = session_site_id
+            settings.__class__.SITE_ID = session_site_id
 
         else:
             self.fallback.process_request(request)
 
-        if not settings.__class__.SITE_ID.value:
+        if not settings.__class__.SITE_ID:
             raise Http404
 
     def process_response(self, request, response):
@@ -61,7 +61,6 @@ class SiteIDPatchMiddleware(object):
         'Host' header as a key to cache responses.
         Used by django.middleware.cache
         """
-
         patch_vary_headers(response, ('Host',))
         return response
 

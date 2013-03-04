@@ -1,3 +1,4 @@
+SITE_ID = None
 INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -67,12 +68,13 @@ MIDDLEWARE_CLASSES = (
 )
 
 # List of callables that know how to import templates from various sources.
+
 TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.Loader',
     'django.template.loaders.app_directories.Loader',
     'django.template.loaders.eggs.Loader',
     'cms_templates.loader.CmsTemplatesLoader',
     )
-
-
+CACHE_BACKEND='locmem:///'
 LANGUAGE_CODE = "en-US"
+
