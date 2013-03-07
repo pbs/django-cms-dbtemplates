@@ -6,6 +6,8 @@ README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                            'README.rst')
 
 dependencies = [
+    'django-cms==2.3.3',
+    'django-dbtemplates==1.4.1pbs',
 ]
 
 dependency_links = [
@@ -27,10 +29,8 @@ setup(
     dependency_links=dependency_links,
     setup_requires=[
         's3sourceuploader',
-        'django-dbtemplates==1.4.1pbs',
     ],
     tests_require=[
-        'django-cms==2.3.3',
         'django-nose',
         'mock==1.0.1',
     ],
