@@ -37,6 +37,11 @@ def _is_used_by_pages(template, site):
 
 class ExtendedTemplateAdminForm(TemplateAdminForm):
 
+    def __init__(self, *args, **kwargs):
+        super(ExtendedTemplateAdminForm, self).__init__(*args, **kwargs)
+        if getattr(self, 'instance', None) and self.instance.pk:
+            self.fields['name'].widget.attrs['readonly'] = True
+
     def _handle_sites_not_assigned(self, template, required_sites):
         already_assigned = template.sites.values_list('domain', flat=True)
         need_assigning = set(required_sites) - set(already_assigned)
