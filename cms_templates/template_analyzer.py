@@ -1,8 +1,34 @@
 from django.template.loader_tags import (ConstantIncludeNode,
                                          ExtendsNode, BlockNode)
 from sekizai.templatetags.sekizai_tags import RenderBlock
-from sekizai.helpers import is_variable_extend_node, _extend_blocks
+from sekizai.helpers import is_variable_extend_node
 from django.template import VariableNode, NodeList
+
+
+def _extend_blocks(extend_node, blocks):
+    """
+    Extends the dictionary `blocks` with *new* blocks in the parent node (recursive)
+    """
+    # we don't support variable extensions
+    if is_variable_extend_node(extend_node):
+        return
+    parent = extend_node.get_parent(None)
+    # Search for new blocks
+    for node in parent.nodelist.get_nodes_by_type(BlockNode):
+        if not node.name in blocks:
+            blocks[node.name] = node
+        else:
+            # set this node as the super node (for {{ block.super }})
+            block = blocks[node.name]
+            seen_supers = []
+            while hasattr(block.super, 'nodelist') and block.super not in seen_supers:
+                seen_supers.append(block.super)
+                block = block.super
+            block.super = node
+    # search for further ExtendsNodes
+    for node in parent.nodelist.get_nodes_by_type(ExtendsNode):
+        _extend_blocks(node, blocks)
+        break
 
 
 # modified _extend_nodelist from sekizai.helpers
@@ -29,11 +55,12 @@ def _extend_nodelist(extend_node):
     return found
 
 
-def _scan_nodelist(subnodelist, current_node, found):
+def _scan_nodelist(subnodelist, node, block):
     if isinstance(subnodelist, NodeList):
-        if isinstance(current_node, BlockNode):
-            current_block = current_node
-        found += get_all_templates_used(subnodelist, current_block)
+        if isinstance(node, BlockNode):
+            block = node
+        return get_all_templates_used(subnodelist, block), block
+    return [], block
 
 
 # modified _scan_placeholders from cms.utils.plugins
@@ -45,7 +72,7 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
     for node in nodelist:
         if isinstance(node, ConstantIncludeNode) and node.template:
             found.append(node.template.name)
-            found += get_all_templates_used(node.template)
+            found += get_all_templates_used(node.template.nodelist)
         elif isinstance(node, ExtendsNode):
             found.append(node.get_parent(None).name)
             found += _extend_nodelist(node)
@@ -61,9 +88,12 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
             continue
         elif hasattr(node, 'child_nodelists'):
             for child_lst in node.child_nodelists:
-                _scan_nodelist(getattr(node, child_lst, ''), node, found)
+                _found_to_add, current_block = _scan_nodelist(
+                    getattr(node, child_lst, ''), node, current_block)
+                found += _found_to_add
         else:
             for attr in dir(node):
-                _scan_nodelist(getattr(node, attr), node, found)
-
+                _found_to_add, current_block = _scan_nodelist(
+                    getattr(node, attr), node, current_block)
+                found += _found_to_add
     return found
