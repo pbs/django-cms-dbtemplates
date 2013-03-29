@@ -1,34 +1,8 @@
 from django.template.loader_tags import (ConstantIncludeNode,
                                          ExtendsNode, BlockNode)
 from sekizai.templatetags.sekizai_tags import RenderBlock
-from sekizai.helpers import is_variable_extend_node
+from sekizai.helpers import is_variable_extend_node, _extend_blocks
 from django.template import VariableNode, NodeList
-
-
-def _extend_blocks(extend_node, blocks):
-    """
-    Extends the dictionary `blocks` with *new* blocks in the parent node (recursive)
-    """
-    # we don't support variable extensions
-    if is_variable_extend_node(extend_node):
-        return
-    parent = extend_node.get_parent(None)
-    # Search for new blocks
-    for node in parent.nodelist.get_nodes_by_type(BlockNode):
-        if not node.name in blocks:
-            blocks[node.name] = node
-        else:
-            # set this node as the super node (for {{ block.super }})
-            block = blocks[node.name]
-            seen_supers = []
-            while hasattr(block.super, 'nodelist') and block.super not in seen_supers:
-                seen_supers.append(block.super)
-                block = block.super
-            block.super = node
-    # search for further ExtendsNodes
-    for node in parent.nodelist.get_nodes_by_type(ExtendsNode):
-        _extend_blocks(node, blocks)
-        break
 
 
 # modified _extend_nodelist from sekizai.helpers
