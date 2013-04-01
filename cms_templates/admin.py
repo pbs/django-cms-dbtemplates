@@ -14,7 +14,7 @@ from restricted_admin_decorators import restricted_has_delete_permission, \
     restricted_queryset, restricted_change_view
 from django.template.base import TemplateDoesNotExist
 from template_analyzer import get_all_templates_used
-from django.db.models import Q
+from django.db.models import Q, Count
 
 
 def _get_registered_modeladmin(model):
@@ -117,6 +117,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 domain: unassigned_page_templates.get(
                     domain, []) + [template_name]})
 
+        compiled = {}
         for domain, templates in unassigned_page_templates.iteritems():
             # check if it used by pages
             if self.instance.name in templates:
@@ -126,19 +127,28 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
 
             # check if it is used by templates of pages
             for template_name in templates:
-                if self.instance.name in self._get_used_templates(
-                    template_name, domain, True):
+
+                if template_name not in compiled:
+                    compiled[template_name] = self._get_used_templates(
+                        template_name, domain, True)
+
+                if self.instance.name in compiled.get(template_name):
                     raise ValidationError(
                         self.custom_error_messages['template_indirect_pages_use']
                         .format(domain))
 
             # check if it is used by templates of the unassigned site
-            assigned_templates = Site.objects.get(domain=domain)\
+            other_templates = Site.objects.get(domain=domain)\
                 .template_set.exclude(name__in=templates)\
                 .values_list('name', flat=True)
-            for template_name in assigned_templates:
-                if self.instance.name in self._get_used_templates(
-                    template_name, domain, False):
+
+            for template_name in other_templates:
+
+                if template_name not in compiled:
+                    compiled[template_name] = self._get_used_templates(
+                        template_name, domain, False)
+
+                if self.instance.name in compiled.get(template_name):
                     raise ValidationError(
                         self.custom_error_messages['template_indirect_templ_use']
                         .format(domain, self.instance.name, template_name))
@@ -216,26 +226,93 @@ class ExtendedSiteAdminForm(SiteAdminForm):
         )
     )
 
+    custom_error_messages = {
+        'syntax_error': 'Template {0} or some of the templates it uses have \
+            syntax errors: {1}. Fix this error before assigning/unassigning \
+            this template.',
+        'required_not_assigned': 'Template {0} is required by template {1} \
+            and it is not assigned to this site.',
+        'required_not_exist': 'Template {0} uses template {1} that does not \
+            exist. Create it or remove its reference from the template code. \
+            Fix this error before assigning/unassigning this template.',
+        'all_required': 'Templates {0} are required by template {1}. Assign \
+            or unassign them all.',
+        'nonexistent_in_pages': 'There are pages that use the following \
+            nonexistent templates: {0}. Change the pages that uses them, \
+            delete the pages that uses them or just create them with this \
+            site assigned.',
+        'required_in_pages': 'The following templates are used by the pages \
+            of this site and need to be assigned to this site: {0}',
+        'orphan': 'Following templates will remain with no sites assigned: {0}'
+    }
+
     def __init__(self, *args, **kwargs):
         super(ExtendedSiteAdminForm, self).__init__(*args, **kwargs)
         if self.instance.pk is not None:
             self.fields['templates'].initial = self.instance.template_set.all()
 
+    def _get_templates_used(self, template_instance):
+        try:
+            compiled_template = _Template(template_instance.content)
+            used_templates = get_all_templates_used(compiled_template.nodelist)
+        except TemplateSyntaxError, e:
+            raise ValidationError(
+                self.custom_error_messages['syntax_error'].format(
+                    template_instance.name, e))
+        except TemplateDoesNotExist, e:
+            try:
+                existing_template = Template.objects.get(name=str(e))
+                if existing_template not in self.cleaned_data['templates']:
+                    raise ValidationError(
+                        self.custom_error_messages['required_not_assigned']
+                        .format(e, template_instance.name))
+            except Template.DoesNotExist:
+                raise ValidationError(
+                    self.custom_error_messages['required_not_exist']
+                    .format(template_instance.name, e))
+        return used_templates
+
     def clean_templates(self):
         assigned_templates = self.cleaned_data['templates']
+        # make sure all required templates are assigned
+        assigned_names = set([t.name for t in assigned_templates])
+        for assigned_templ in assigned_templates:
+            used = set(self._get_templates_used(assigned_templ))
+            if not used <= assigned_names:
+                raise ValidationError(
+                    self.custom_error_messages['all_required']
+                    .format(
+                        ', '.join(used - assigned_names),
+                        assigned_templ.name))
+
         if self.instance.pk is None:
             return assigned_templates
+
+        templates_required = set(self.instance.page_set
+            .exclude(template__in=list(assigned_names) + ['INHERIT'])
+            .values_list('template', flat=True).distinct())
+
+        if templates_required:
+            all_existing_templates = set(Template.objects.all()
+                .values_list('name', flat=True))
+            if not templates_required <= all_existing_templates:
+                raise ValidationError(
+                    self.custom_error_messages['nonexistent_in_pages']
+                    .format(', '.join(templates_required - all_existing_templates)))
+            else:
+                raise ValidationError(
+                    self.custom_error_messages['required_in_pages']
+                    .format(', '.join(templates_required)))
+
         pks = [s.pk for s in assigned_templates]
-        # templates that were previously assigned to this site, but got unassigned
-        unassigned_templates = self.instance.template_set.exclude(pk__in=pks)
-        templates_with_no_sites = []
-        for template in unassigned_templates:
-            if template.sites.count() == 1:
-                templates_with_no_sites.append(template)
-        if templates_with_no_sites:
+        orphan_templates = self.instance.template_set.exclude(pk__in=pks)\
+            .annotate(Count('sites')).filter(sites__count=1)\
+            .values_list('name', flat=True)
+
+        if orphan_templates:
             raise ValidationError(
-                "Following templates will remain with no sites assigned: %s" %
-                ", ".join(t.name for t in templates_with_no_sites))
+                self.custom_error_messages['orphan'].format(
+                    ", ".join(orphan_templates)))
         return assigned_templates
 
     def save(self, commit=True):
