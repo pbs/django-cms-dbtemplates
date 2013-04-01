@@ -14,6 +14,7 @@ from restricted_admin_decorators import restricted_has_delete_permission, \
     restricted_queryset, restricted_change_view
 from django.template.base import TemplateDoesNotExist
 from template_analyzer import get_all_templates_used
+from django.db.models import Q
 
 
 def _get_registered_modeladmin(model):
@@ -26,16 +27,39 @@ RegisteredTemplateAdmin = _get_registered_modeladmin(Template)
 TemplateAdminForm = RegisteredTemplateAdmin.form
 
 
-def _is_used_by_pages(template, site):
-    templates_used = site.page_set.exclude(template='INHERIT')\
-        .values_list('template', flat=True)
-    if template.name in templates_used:
-        return True
-    # check if selected template is inherited/used by one of the templates_used
-    return False
-
-
 class ExtendedTemplateAdminForm(TemplateAdminForm):
+
+    custom_error_messages = {
+        'template_direct_use': 'Site {0} has pages that are currently using \
+            this template. Delete these pages or use different template for \
+            them before unassigning the site.',
+        'template_indirect_pages_use': 'Site {0} has pages with templates \
+            that depend on this template. Delete these pages or use different \
+            template for them before unassigning the site.',
+        'template_indirect_templ_use': "Cannot unassign site {0} from \
+            template {1}. Template {1} is used by template {2} which has \
+            site {0} assigned. Both templates need to be unassigned from \
+            this site. Do this change from the site admin view.",
+        'template_nonexistent_in_page': 'Template {0} is used by pages of the \
+            site {1} and does not exist. In order to unassign this site you \
+            must fix this error. Create this nonexistent template, delete the \
+            pages that uses it or just change the templates from pages with \
+            templates that are available for use.',
+        'template_syntax_error': 'Syntax error in template {0} or in the \
+            templates that depend on it: {1}. Fix this syntax error before \
+            unassigning site: {2}.',
+        'orphan_in_page': 'Template {0} is used by the site {1}. \
+            Template {0} or some of the templates that depend on it do not \
+            have site {1} assigned. Assign the site or change the template \
+            from the pages that uses it. Fix this error before unassigning \
+            site: {1}.',
+        'orphan_unassigned_to_site': 'Template {0} is used by the site {1}. \
+            Template {0} or some of the templates that are used by it do not \
+            have site {1} assigned. Assign the site to fix this error.',
+        'missing_template_use': 'Template {0} depends on template {1}. \
+            Template {1} does not exist. Create it or remove its reference \
+            from the template code.',
+    }
 
     def __init__(self, *args, **kwargs):
         super(ExtendedTemplateAdminForm, self).__init__(*args, **kwargs)
@@ -50,19 +74,74 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 assigned to the template \
                 %s: %s' % (template.name, ', '.join(need_assigning)))
 
-    def clean_sites(self):
-        if self.instance.pk:
-            assigned_sites = self.cleaned_data['sites']\
-                .values_list('id', flat=True)
-            unassigned_sites = self.instance.sites\
-                .exclude(id__in=assigned_sites)
-            for site in unassigned_sites:
-                if _is_used_by_pages(self.instance, site):
+    def _get_used_templates(self, template_name, site_name, pages_search):
+        try:
+            template = Template.objects.get(name=template_name)
+            return set(get_all_templates_used(_Template(
+                template.content).nodelist))
+        except Template.DoesNotExist:
+            raise ValidationError(
+                self.custom_error_messages['template_nonexistent_in_page']
+                .format(template_name, site_name)) if pages_search else ''
+        except TemplateSyntaxError, e:
+            raise ValidationError(
+                self.custom_error_messages['template_syntax_error']
+                .format(template_name, e, site_name))
+        except TemplateDoesNotExist, e:
+            try:
+                # for orphan templates
+                templ_with_missing_site = Template.objects.get(name=str(e))
+                raise ValidationError(
+                    (self.custom_error_messages['orphan_in_page'] if pages_search
+                    else self.custom_error_messages['orphan_unassigned_to_site'])
+                    .format(templ_with_missing_site.name, site_name))
+            except Template.DoesNotExist:
+                raise ValidationError(
+                    self.custom_error_messages['missing_template_use']
+                    .format(template_name, e))
+
+    def _validate_unassigned_sites(self, cleaned_data):
+        assigned = cleaned_data['sites'].values_list('id', flat=True)
+
+        templ_from_unassigned = self.instance.sites\
+            .exclude(Q(id__in=assigned) | Q(page__template='INHERIT'))\
+            .values_list('page__template', 'domain').distinct()
+
+        if not templ_from_unassigned:
+            return
+
+        unassigned_page_templates = {}
+        for pair in templ_from_unassigned:
+            template_name, domain = pair[0], pair[1]
+            unassigned_page_templates.update({
+                domain: unassigned_page_templates.get(
+                    domain, []) + [template_name]})
+
+        for domain, templates in unassigned_page_templates.iteritems():
+            # check if it used by pages
+            if self.instance.name in templates:
+                raise ValidationError(
+                    self.custom_error_messages['template_direct_use']
+                    .format(domain))
+
+            # check if it is used by templates of pages
+            for template_name in templates:
+                if self.instance.name in self._get_used_templates(
+                    template_name, domain, True):
                     raise ValidationError(
-                        'Site %s has pages that use this template. \
-                        Use different template for pages before \
-                        unassigning the site.' % site.domain)
-        return self.cleaned_data['sites']
+                        self.custom_error_messages['template_indirect_pages_use']
+                        .format(domain))
+
+            # check if it is used by templates of the unassigned site
+            assigned_templates = Site.objects.get(domain=domain)\
+                .template_set.exclude(name__in=templates)\
+                .values_list('name', flat=True)
+            for template_name in assigned_templates:
+                if self.instance.name in self._get_used_templates(
+                    template_name, domain, False):
+                    raise ValidationError(
+                        self.custom_error_messages['template_indirect_templ_use']
+                        .format(domain, self.instance.name, template_name))
 
     def clean(self):
         cleaned_data = super(ExtendedTemplateAdminForm, self).clean()
@@ -74,28 +153,27 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         try:
             compiled_template = _Template(cleaned_data.get('content'))
             used_templates = get_all_templates_used(compiled_template.nodelist)
-            print used_templates
         except TemplateSyntaxError, e:
             raise ValidationError('Template Syntax Error: %s' % e)
         except TemplateDoesNotExist, e:
-
-            existing_template = Template.objects.filter(name=str(e))
-            if existing_template:
+            try:
+                existing_template = Template.objects.get(name=str(e))
                 self._handle_sites_not_assigned(
-                    existing_template[0], required_sites)
+                    existing_template, required_sites)
                 raise ValidationError('Template: %s not found.' % e)
-
-            raise ValidationError('Template: %s does not exist. \
-                    Create it first and assign it to the following sites: \
-                    %s' % (e, ', '.join(required_sites)))
+            except Template.DoesNotExist:
+                raise ValidationError('Template: %s does not exist. \
+                        Create it first and assign it to the following sites: \
+                        %s' % (e, ', '.join(required_sites)))
 
         # make sure all used templates have all necessary sites assigned
         for used_template in set(used_templates):
             self._handle_sites_not_assigned(
                 Template.objects.get(name=used_template), required_sites)
 
+        if self.instance.pk:
+            self._validate_unassigned_sites(cleaned_data)
         return cleaned_data
-
 
 allways = ('creation_date', 'last_changed')
 ro = ('name', 'content', 'sites') + allways
