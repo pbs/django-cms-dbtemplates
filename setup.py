@@ -6,7 +6,12 @@ README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                            'README.rst')
 
 dependencies = [
+    'djangotoolbox',
+    'django>=1.4.1, <1.5',
+    'django-cms>=2.3.1pbs, <2.4',
+    'django-dbtemplates>=1.4.1pbs, <1.5',
 ]
+
 
 dependency_links = [
     'http://github.com/pbs/django-dbtemplates/tarball/develop#egg=django-dbtemplates-1.4.1pbs',
@@ -28,16 +33,10 @@ setup(
     dependency_links=dependency_links,
     setup_requires=[
         's3sourceuploader',
-        'django-dbtemplates==1.4.1pbs',
-        'django-dbtemplates==1.4.1pbs',
-        'django-cms==2.3.5pbs',
     ],
     tests_require=[
-        'django-cms==2.3.5pbs',
         'django-nose',
-        'mock==1.0.1',
-        'django-nose',
-        'djangotoolbox',
+        'mock',
     ],
     test_suite='runtests.runtests',
 )

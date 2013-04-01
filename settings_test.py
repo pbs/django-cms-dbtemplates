@@ -1,3 +1,5 @@
+gettext = lambda x: x
+
 SITE_ID = None
 INSTALLED_APPS = [
     'django.contrib.auth',
@@ -76,5 +78,3 @@ TEMPLATE_LOADERS = (
     'cms_templates.loader.CmsTemplatesLoader',
     )
 CACHE_BACKEND='locmem:///'
-LANGUAGE_CODE = "en-US"
-
