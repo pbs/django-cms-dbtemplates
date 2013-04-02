@@ -8,8 +8,10 @@ from django.contrib.admin.options import ModelAdmin
 from django.test.client import RequestFactory
 from django.core import urlresolvers
 from django.conf import settings as django_settings
-
-from restricted_admin_decorators import restricted_has_delete_permission, restricted_get_readonly_fields, restricted_formfield_for_manytomany, restricted_queryset
+from mock import patch
+from restricted_admin_decorators import (restricted_has_delete_permission,
+    restricted_get_readonly_fields, restricted_formfield_for_manytomany,
+    restricted_queryset)
 
 counter = 0
 def create_site(**kwargs):
@@ -365,11 +367,6 @@ class TestDecorators(TestCase):
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.has_delete_permission(self.request, self.template), False)
-
-
-from django.contrib.sites.models import Site
-from django.template import loader, Context, TemplateDoesNotExist
-from mock import patch
 
 
 class TestLoader(TestCase):
