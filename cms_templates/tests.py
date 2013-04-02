@@ -8,6 +8,7 @@ from django.contrib.admin.options import ModelAdmin
 from django.test.client import RequestFactory
 from django.core import urlresolvers
 from django.conf import settings as django_settings
+from django.template import loader, Context
 from mock import patch
 from restricted_admin_decorators import (restricted_has_delete_permission,
     restricted_get_readonly_fields, restricted_formfield_for_manytomany,
