@@ -100,22 +100,27 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                     self.custom_error_messages['missing_template_use']
                     .format(template_name, e))
 
+    def _build_template_site_dict(self, list_of_tuples):
+        new_dict = {}
+        for pair in list_of_tuples:
+            template, site = pair[0], pair[1]
+            new_dict.update({site: new_dict.get(site, []) + [template]})
+        return new_dict
+
     def _validate_unassigned_sites(self, cleaned_data):
         assigned = cleaned_data['sites'].values_list('id', flat=True)
 
-        templ_from_unassigned = self.instance.sites\
-            .exclude(Q(id__in=assigned) | Q(page__template='INHERIT'))\
-            .values_list('page__template', 'domain').distinct()
+        unassigned_page_templates = self._build_template_site_dict(
+            self.instance.sites.exclude(
+                Q(id__in=assigned) | Q(page__template='INHERIT'))
+            .values_list('page__template', 'domain').distinct())
 
-        if not templ_from_unassigned:
+        unassigned_site_templates = {
+            s.domain: s.template_set.all().values_list('name', flat=True)
+            for s in self.instance.sites.exclude(id__in=assigned)}
+
+        if not (unassigned_page_templates or unassigned_site_templates):
             return
-
-        unassigned_page_templates = {}
-        for pair in templ_from_unassigned:
-            template_name, domain = pair[0], pair[1]
-            unassigned_page_templates.update({
-                domain: unassigned_page_templates.get(
-                    domain, []) + [template_name]})
 
         compiled = {}
         for domain, templates in unassigned_page_templates.iteritems():
@@ -137,10 +142,8 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                         self.custom_error_messages['page_template_use']
                         .format(domain))
 
+        for domain, other_templates in unassigned_site_templates.iteritems():
             # check if it is used by templates of the unassigned site
-            other_templates = Site.objects.get(domain=domain)\
-                .template_set.exclude(name__in=templates)\
-                .values_list('name', flat=True)
 
             for template_name in other_templates:
 
