@@ -6,6 +6,7 @@ README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                            'README.rst')
 
 dependencies = [
+    'djangotoolbox',
     'django-cms==2.3.3',
     'django-dbtemplates==1.4.1pbs',
 ]
