@@ -93,7 +93,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 templ_with_missing_site = Template.objects.get(name=str(e))
                 raise ValidationError(
                     (self.custom_error_messages['orphan_in_page'] if pages_search
-                    else self.custom_error_messages['orphan_unassigned_to_site'])
+                        else self.custom_error_messages['orphan_unassigned_to_site'])
                     .format(templ_with_missing_site.name, site_name))
             except Template.DoesNotExist:
                 raise ValidationError(
@@ -308,7 +308,10 @@ class ExtendedSiteAdminForm(SiteAdminForm):
                     .format(', '.join(templates_required)))
 
         pks = [s.pk for s in assigned_templates]
-        orphan_templates = self.instance.template_set.exclude(pk__in=pks)\
+        unassigned = self.instance.template_set.exclude(pk__in=pks)\
+            .values_list('id', flat=True)
+
+        orphan_templates = Template.objects.filter(id__in=unassigned)\
             .annotate(Count('sites')).filter(sites__count=1)\
             .values_list('name', flat=True)
 
