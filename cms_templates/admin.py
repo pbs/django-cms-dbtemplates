@@ -30,22 +30,22 @@ TemplateAdminForm = RegisteredTemplateAdmin.form
 class ExtendedTemplateAdminForm(TemplateAdminForm):
 
     custom_error_messages = {
-        'template_direct_use': 'Site {0} has pages that are currently using \
+        'page_use': 'Site {0} has pages that are currently using \
             this template. Delete these pages or use different template for \
             them before unassigning the site.',
-        'template_indirect_pages_use': 'Site {0} has pages with templates \
+        'page_template_use': 'Site {0} has pages with templates \
             that depend on this template. Delete these pages or use different \
             template for them before unassigning the site.',
-        'template_indirect_templ_use': "Cannot unassign site {0} from \
+        'site_template_use': "Cannot unassign site {0} from \
             template {1}. Template {1} is used by template {2} which has \
             site {0} assigned. Both templates need to be unassigned from \
             this site. Do this change from the site admin view.",
-        'template_nonexistent_in_page': 'Template {0} is used by pages of the \
+        'nonexistent_in_pages': 'Template {0} is used by pages of the \
             site {1} and does not exist. In order to unassign this site you \
             must fix this error. Create this nonexistent template, delete the \
             pages that uses it or just change the templates from pages with \
             templates that are available for use.',
-        'template_syntax_error': 'Syntax error in template {0} or in the \
+        'syntax_error': 'Syntax error in template {0} or in the \
             templates that depend on it: {1}. Fix this syntax error before \
             unassigning site: {2}.',
         'orphan_in_page': 'Template {0} is used by the site {1}. \
@@ -81,11 +81,11 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 template.content).nodelist))
         except Template.DoesNotExist:
             raise ValidationError(
-                self.custom_error_messages['template_nonexistent_in_page']
+                self.custom_error_messages['nonexistent_in_pages']
                 .format(template_name, site_name)) if pages_search else ''
         except TemplateSyntaxError, e:
             raise ValidationError(
-                self.custom_error_messages['template_syntax_error']
+                self.custom_error_messages['syntax_error']
                 .format(template_name, e, site_name))
         except TemplateDoesNotExist, e:
             try:
@@ -122,7 +122,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             # check if it used by pages
             if self.instance.name in templates:
                 raise ValidationError(
-                    self.custom_error_messages['template_direct_use']
+                    self.custom_error_messages['page_use']
                     .format(domain))
 
             # check if it is used by templates of pages
@@ -134,7 +134,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
 
                 if self.instance.name in compiled.get(template_name):
                     raise ValidationError(
-                        self.custom_error_messages['template_indirect_pages_use']
+                        self.custom_error_messages['page_template_use']
                         .format(domain))
 
             # check if it is used by templates of the unassigned site
@@ -150,7 +150,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
 
                 if self.instance.name in compiled.get(template_name):
                     raise ValidationError(
-                        self.custom_error_messages['template_indirect_templ_use']
+                        self.custom_error_messages['site_template_use']
                         .format(domain, self.instance.name, template_name))
 
     def clean(self):
