@@ -96,7 +96,7 @@ class ToBeDecoratedModelAdmin(ModelAdmin):
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         self._test_sites = kwargs['queryset']
-        return None    
+        return None
 
     def queryset(self, restrict_user=False, shared_sites=[], include_orphan=True, **kw):
         return self.model._default_manager.get_query_set()
@@ -286,7 +286,7 @@ class TestDecorators(TestCase):
             pass
 
         setattr(self.request, 'user', self.main_user)
-        
+
         dma = DecoratedModelAdmin(Template, admin_site=None)
 
         self.assertEquals(dma.get_readonly_fields(self.request), allways)
@@ -379,7 +379,7 @@ class TestLoader(TestCase):
     #     super(TestCase, self)._fixture_setup()
 
     def test_shared_site_template(self):
-        with patch('cms_templates.loader.shared_sites') as mock:
+        with patch('cms_templates.settings.shared_sites') as mock:
             mock.return_value = ['SHARED_SITE']
 
             shared_site = Site.objects.create(domain="shared_site.org", name="SHARED_SITE")
@@ -406,12 +406,10 @@ class TestLoader(TestCase):
             tpl = loader.get_template('shared.html')
             self.assertEqual(tpl.render(Context({})), 'shared')
 
-            self.assertRaises(TemplateDoesNotExist, loader.get_template, "site2.html")
-
 
     def test_shared_template_assigned_also_to_another_site(self):
         #test that no exception is raised because the shared template belongs to both shared site and site1
-        with patch('cms_templates.loader.shared_sites') as mock:
+        with patch('cms_templates.settings.shared_sites') as mock:
             mock.return_value = ['SHARED_SITE']
 
             shared_site = Site.objects.create(domain="shared_site.org", name="SHARED_SITE")
@@ -426,7 +424,7 @@ class TestLoader(TestCase):
 
             t1_s1 = Template.objects.create(name='site1.html', content='site1')
             t1_s1.sites.clear()
-            t1_s1.sites.add(site1)        
+            t1_s1.sites.add(site1)
 
             tpl = loader.get_template('shared.html')
             self.assertEqual(tpl.render(Context({})), 'shared')
