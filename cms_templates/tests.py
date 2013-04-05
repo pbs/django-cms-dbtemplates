@@ -497,7 +497,7 @@ class AdminParentChildInheritTest(CMSTestCase):
     def setUp(self):
         """Creates the test site, and the two templates"""
         self.site = Site.objects.create(domain="testserver", name="sample")
-        settings.__class__.SITE_ID = self.site.id
+        self.client.get(URL_CMS_PAGE) # middleware trigger
         first_data = self.template_content
         second_data = self.template_content.replace(
             '<!--second_placeholder-->',

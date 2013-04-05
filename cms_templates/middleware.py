@@ -47,12 +47,12 @@ class SiteIDPatchMiddleware(object):
                 pass
 
         if match.app_name == 'admin' and session_site_id is not None:
-            settings.__class__.SITE_ID = session_site_id
+            settings.__class__.SITE_ID.value = session_site_id
 
         else:
             self.fallback.process_request(request)
 
-        if not settings.__class__.SITE_ID:
+        if not settings.__class__.SITE_ID.value:
             raise Http404
 
     def process_response(self, request, response):
