@@ -3,18 +3,18 @@ from django.contrib.admin.sites import NotRegistered
 from django.contrib.sites.models import Site
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
-from settings import shared_sites, include_orphan, restrict_user
 from django.conf import settings
 from django.forms import ModelMultipleChoiceField
+from django.utils.translation import ugettext_lazy as _
 from dbtemplates.models import Template
 from cms.models import Page
 from django.template import (Template as _Template, TemplateSyntaxError)
-from restricted_admin_decorators import restricted_has_delete_permission, \
-    restricted_get_readonly_fields, restricted_formfield_for_manytomany, \
-    restricted_queryset, restricted_change_view
 from django.template.base import TemplateDoesNotExist
 from template_analyzer import get_all_templates_used
 from django.db.models import Q, Count
+
+from restricted_model_admin.decorators import \
+    restricted_overrides, append_restricted_fields
 
 
 def _get_registered_modeladmin(model):
@@ -69,7 +69,8 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
     def __init__(self, *args, **kwargs):
         super(ExtendedTemplateAdminForm, self).__init__(*args, **kwargs)
         if getattr(self, 'instance', None) and self.instance.pk:
-            self.fields['name'].widget.attrs['readonly'] = True
+            if 'name' in self.fields:
+                self.fields['name'].widget.attrs['readonly'] = True
 
     def _error_msg(self, msg_key, *args):
         return self.custom_error_messages[msg_key].format(*args)
@@ -204,15 +205,12 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             setattr(settings, 'TEMPLATE_DEBUG', initial_setting)
             raise
 
-allways = ('creation_date', 'last_changed')
-ro = ('name', 'content', 'sites') + allways
 
-
-@restricted_has_delete_permission(restrict_user, tuple(shared_sites))
-@restricted_get_readonly_fields(restrict_user, tuple(shared_sites), ro=ro, allways=allways)
-@restricted_formfield_for_manytomany(restrict_user)
-@restricted_queryset(restrict_user, tuple(shared_sites), include_orphan)
-@restricted_change_view(restrict_user, tuple(shared_sites))  # hides all save buttons
+#This decorator overrides the following ModelAdmin methods:
+#   has_delete-permission, get_readonly_fields,
+#   formfield_for_many_to_many, queryset and change_view
+@restricted_overrides(restrict_user, include_orphan, allways_ro= ('creation_date', 'last_changed'))
+@append_restricted_fields
 class RestrictedTemplateAdmin(RegisteredTemplateAdmin):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
