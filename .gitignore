@@ -1,5 +1,7 @@
 *.pyc
+*.swp
 dist
 *.egg-info
 *.egg
 build
+nosetest.xml
