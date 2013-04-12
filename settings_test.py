@@ -52,19 +52,15 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
 
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'cms_templates.middleware.SiteIDPatchMiddleware',
     'cms_templates.middleware.DBTemplatesMiddleware',
 
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
 
-    # djangos-cms specific
-    # Not using multilingual fixes the login bug caused by dynamic site-id hack
-    # 'cms.middleware.multilingual.MultilingualURLMiddleware',
     'cms.middleware.page.CurrentPageMiddleware',
     'cms.middleware.user.CurrentUserMiddleware',
-    'cms.middleware.toolbar.ToolbarMiddleware',
 )
 TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.Loader',
