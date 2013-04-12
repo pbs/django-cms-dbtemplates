@@ -70,7 +70,6 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         super(ExtendedTemplateAdminForm, self).__init__(*args, **kwargs)
         if getattr(self, 'instance', None) and self.instance.pk:
             self.fields['name'].widget.attrs['readonly'] = True
-            self.fields['name'].widget.attrs['disabled'] = 'disabled'
 
     def _error_msg(self, msg_key, *args):
         return self.custom_error_messages[msg_key].format(*args)
@@ -228,7 +227,7 @@ class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
         f.base_fields['template'].choices = choices
         return f
 
-    
+
 RegisteredSiteAdmin = _get_registered_modeladmin(Site)
 SiteAdminForm = RegisteredSiteAdmin.form
 
