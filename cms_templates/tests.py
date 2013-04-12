@@ -741,7 +741,6 @@ class TestTemplateValidation(TestCase):
         response = self.client.get(self._templ_url())
         name_widget = response.context['adminform'].form.fields['name'].widget
         self.assertNotIn('readonly', name_widget.attrs)
-        self.assertNotIn('disabled', name_widget.attrs)
         templA = Template.objects.create(
             name='templA', content="asdasd")
         templA.sites.add(Site.objects.get(id=1))
@@ -750,7 +749,6 @@ class TestTemplateValidation(TestCase):
         response = self.client.get(self._templ_url(templA.id))
         name_widget = response.context['adminform'].form.fields['name'].widget
         self.assertIn('readonly', name_widget.attrs)
-        self.assertIn('disabled', name_widget.attrs)
 
     def test_nonexistent_template_use(self):
         self._trigger_validation_error_on_template_form(
