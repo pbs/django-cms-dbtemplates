@@ -13,9 +13,6 @@ from django.template.base import TemplateDoesNotExist
 from template_analyzer import get_all_templates_used
 from django.db.models import Q, Count
 
-from restricted_model_admin.decorators import \
-    restricted_overrides, append_restricted_fields
-
 
 def _get_registered_modeladmin(model):
     """ This is a huge hack to get the registered modeladmin for the model.
@@ -206,11 +203,6 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             raise
 
 
-#This decorator overrides the following ModelAdmin methods:
-#   has_delete-permission, get_readonly_fields,
-#   formfield_for_many_to_many, queryset and change_view
-@restricted_overrides(restrict_user, include_orphan, allways_ro= ('creation_date', 'last_changed'))
-@append_restricted_fields
 class RestrictedTemplateAdmin(RegisteredTemplateAdmin):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
