@@ -1,4 +1,4 @@
-from django.template.loader_tags import (ConstantIncludeNode,
+from django.template.loader_tags import (BaseIncludeNode,
                                          ExtendsNode, BlockNode)
 from sekizai.templatetags.sekizai_tags import RenderBlock
 from sekizai.helpers import is_variable_extend_node, _extend_blocks
@@ -44,7 +44,7 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
 
     found = []
     for node in nodelist:
-        if isinstance(node, ConstantIncludeNode) and node.template:
+        if isinstance(node, BaseIncludeNode) and node.template:
             found.append(node.template.name)
             found += get_all_templates_used(node.template.nodelist)
         elif isinstance(node, ExtendsNode):

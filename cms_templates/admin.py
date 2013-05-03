@@ -15,6 +15,7 @@ from restricted_admin_decorators import restricted_has_delete_permission, \
 from django.template.base import TemplateDoesNotExist
 from template_analyzer import get_all_templates_used
 from django.db.models import Q, Count
+from recursive_validator import handle_recursive_calls
 
 
 def _get_registered_modeladmin(model):
@@ -157,10 +158,13 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                     raise ValidationError(self._error_msg(
                         'site_template_use', domain, self.instance.name, template_name))
 
+
     def clean(self):
         cleaned_data = super(ExtendedTemplateAdminForm, self).clean()
         if not set(['name', 'content', 'sites']) <= set(cleaned_data.keys()):
             return cleaned_data
+
+        handle_recursive_calls(cleaned_data['name'], cleaned_data['content'])
 
         initial_setting = getattr(settings, 'TEMPLATE_DEBUG')
         try:
@@ -203,6 +207,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         except:
             setattr(settings, 'TEMPLATE_DEBUG', initial_setting)
             raise
+
 
 allways = ('creation_date', 'last_changed')
 ro = ('name', 'content', 'sites') + allways
