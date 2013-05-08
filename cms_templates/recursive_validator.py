@@ -81,7 +81,7 @@ class CalledTemplatesParser(DebugParser):
             if token.token_type == 2: # TOKEN_BLOCK
                 try:
                     command = token.contents.split()[0]
-                    if command in ['extends', 'include']:
+                    if command in ['extends', 'include', 'ssi']:
                         callee = self.get_clean_callee(token)
                         called_templates.append((callee, command, caller))
                 except IndexError:

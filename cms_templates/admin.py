@@ -164,9 +164,9 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         if not set(['name', 'content', 'sites']) <= set(cleaned_data.keys()):
             return cleaned_data
 
-        handle_recursive_calls(cleaned_data['name'], cleaned_data['content'])
-
         initial_setting = getattr(settings, 'TEMPLATE_DEBUG')
+
+        handle_recursive_calls(cleaned_data['name'], cleaned_data['content'])
         try:
             setattr(settings, 'TEMPLATE_DEBUG', True)
 
