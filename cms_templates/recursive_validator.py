@@ -97,8 +97,10 @@ class CalledTemplatesParser(DebugParser):
                     command = token.split_contents()[0]
                     callee = ''
                     if command == 'load':
+                        #load tag needs to be compiled so that the extra tags
+                        # (like the ones for menu) can be recognized as tokens
                         compile_func = self.tags[command]
-                        compiled_result = compile_func(self, token)
+                        compile_func(self, token)
                     elif command in ['extends', 'include', 'ssi']:
                         callee = self.clean_callee(token.contents.split()[1])
                     elif command in ['show_menu', 'show_menu_below_id',
