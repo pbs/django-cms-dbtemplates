@@ -986,6 +986,7 @@ class InfiniteRecursivityErrorTest(TestCase):
 
         try:
             handle_recursive_calls(t1.name, t1.content)
+            self.assertTrue(False)
         except InfiniteRecursivityError, e:
             self.assertEqual(set([u'tpl1', u'tpl2', u'tpl3', u'tpl4']), \
                                      set(e.cycle_items))
