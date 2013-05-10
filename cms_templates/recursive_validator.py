@@ -58,7 +58,7 @@ def cycle_test(call_graph, called_tpls):
 
 
 def format_recursive_msg(tpl_name, e):
-    cycle_items = e.cycle_items
+    cycle_items = list(e.cycle_items)
     if tpl_name in cycle_items:
         index = cycle_items.index(tpl_name)
         # rotate list such that tpl_name is the first
