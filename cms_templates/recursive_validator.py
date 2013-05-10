@@ -15,10 +15,13 @@ class InfiniteRecursivityError(Exception):
 
 
 def handle_recursive_calls(tpl_name, content):
+    # create the call graph as a directed graph
     call_graph = digraph()
+
     # visited_templates items will look like this:
     # [("tpl1", "extends", "tpl2"), ...]
     visited_templates = [(tpl_name, '', '')]
+
     call_graph.add_node(tpl_name)
     i = 0
     while i < len(visited_templates):
@@ -30,6 +33,7 @@ def handle_recursive_calls(tpl_name, content):
             continue
 
         called_tpls = get_called_templates(tpl_content, name)
+        update_call_graph(call_graph, called_tpls)
 
         #raises InfiniteRecursivityError in case of a cycle
         cycle_test(call_graph, called_tpls)
@@ -38,7 +42,7 @@ def handle_recursive_calls(tpl_name, content):
         i += 1
 
 
-def cycle_test(call_graph, called_tpls):
+def update_call_graph(call_graph, called_tpls):
     for item in called_tpls:
         try:
             call_graph.add_node(item[0])
@@ -46,11 +50,13 @@ def cycle_test(call_graph, called_tpls):
             pass
 
         try:
-            #add edge (caller tpl ---> callee tpl), label = extends or include
+            #add edge (caller tpl ---> callee tpl), label=extends, include, etc
             call_graph.add_edge((item[2], item[0]), label=item[1])
         except AdditionError:
             pass
 
+
+def cycle_test(call_graph, called_tpls):
     # the list of nodes in case of a cycle
     cycle_items = find_cycle(call_graph)
     if cycle_items:
@@ -58,27 +64,22 @@ def cycle_test(call_graph, called_tpls):
 
 
 def format_recursive_msg(tpl_name, e):
-    tpl_name_index = e.cycle_items.index(tpl_name) if tpl_name in e.cycle_items else 0
+    tpl_name_index = e.cycle_items.index(tpl_name) \
+                     if tpl_name in e.cycle_items else 0
     msg = ''
     for i in range(len(e.cycle_items)):
         n1 = e.cycle_items[(tpl_name_index + i) % len(e.cycle_items)]
         n2 = e.cycle_items[(tpl_name_index + i + 1) % len(e.cycle_items)]
         label = e.graph.edge_label((n1, n2))
-        msg +=  '<%s> uses (%s) <%s>, ' % (n1, label, n2)
+        msg += '<%s> uses (%s) <%s>, ' % (n1, label, n2)
     return msg
 
 
 def get_called_templates(tpl_string, caller):
-    try:
-        template_string = smart_unicode(tpl_string)
-    except UnicodeDecodeError:
-        raise TemplateEncodingError("Templates can only be constructed "
-                                    "from unicode or UTF-8 strings.")
+    template_string = smart_unicode(tpl_string)
     origin = StringOrigin(template_string)
-
-    lexer_class, parser_class = DebugLexer, CalledTemplatesParser
-    lexer = lexer_class(template_string, origin)
-    parser = parser_class(lexer.tokenize())
+    lexer = DebugLexer(template_string, origin)
+    parser = CalledTemplatesParser(lexer.tokenize())
     return parser.parse(caller)
 
 
@@ -93,7 +94,7 @@ class CalledTemplatesParser(DebugParser):
                 callee = ''
                 if command == 'load':
                     #load tag needs to be compiled so that the extra tags
-                    # (like the ones for menu) can be recognized as tokens
+                    # (like the ones for menu) can be recognized later as tokens
                     compile_func = self.tags[command]
                     compile_func(self, token)
                 elif command in ['extends', 'include', 'ssi']:
