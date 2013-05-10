@@ -64,13 +64,11 @@ def format_recursive_msg(tpl_name, e):
         # rotate list such that tpl_name is the first
         cycle_items = cycle_items[index:] + cycle_items[:index]
     msg = ''
-    msg_pattern = '<%s> uses (%s) <%s>, '
-    for i in range(len(cycle_items) - 1):
+    for i in range(len(cycle_items)):
         n1 = cycle_items[i]
-        n2 = cycle_items[i + 1]
+        n2 = cycle_items[(i + 1) % len(cycle_items)]
         label = e.graph.edge_label((n1, n2))
-        msg += msg_pattern % (n1, label, n2)
-    msg += msg_pattern[0:-2] % (cycle_items[-1], label, cycle_items[0])
+        msg +=  '<%s> uses (%s) <%s>, ' % (n1, label, n2)
     return msg
 
 
