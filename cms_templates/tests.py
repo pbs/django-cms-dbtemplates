@@ -949,3 +949,43 @@ class TestTemplateValidation(TestCase):
         self._trigger_validation_error_on_site_form(
             s.name, s.domain, [templA.id, templB.id, templC.id],
             'orphan', s.id)
+
+
+from recursive_validator import handle_recursive_calls, \
+    InfiniteRecursivityError
+
+
+class InfiniteRecursivityErrorTest(TestCase):
+
+    tpl1 = """
+    {% load menu_tags %}
+    {% show_menu 0 100 100 100 "tpl4" %}
+    """
+
+    tpl2 = """
+    {% extends "tpl1" %}
+    """
+
+    tpl3 = """
+    {% include "tpl2" %}
+    """
+
+    tpl4 = """
+    {% extends "tpl3" %}
+    """
+
+    def test(self):
+        t1 = Template.objects.create(name="tpl1", \
+                            content=InfiniteRecursivityErrorTest.tpl1)
+        t2 = Template.objects.create(name="tpl2", \
+                            content=InfiniteRecursivityErrorTest.tpl2)
+        t3 = Template.objects.create(name="tpl3", \
+                            content=InfiniteRecursivityErrorTest.tpl3)
+        t4 = Template.objects.create(name="tpl4", \
+                            content=InfiniteRecursivityErrorTest.tpl4)
+
+        try:
+            handle_recursive_calls(t1.name, t1.content)
+        except InfiniteRecursivityError, e:
+            self.assertEqual(set([u'tpl1', u'tpl2', u'tpl3', u'tpl4']), \
+                                     set(e.cycle_items))

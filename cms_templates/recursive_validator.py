@@ -5,7 +5,13 @@ from django.template import TemplateEncodingError, \
 from django.template.loader import find_template
 from digraph import digraph, find_cycle, AdditionError
 from dbtemplates.models import Template
-from django.core.exceptions import ValidationError
+
+
+class InfiniteRecursivityError(Exception):
+
+    def __init__(self, cycle_items, graph):
+        self.cycle_items = cycle_items
+        self.graph = graph
 
 
 def handle_recursive_calls(tpl_name, content):
@@ -46,17 +52,25 @@ def cycle_test(call_graph, called_tpls):
     # the list of nodes in case of a cycle
     cycle_items = find_cycle(call_graph)
     if cycle_items:
-        msg = format_error_msg(call_graph, cycle_items)
-        raise ValidationError(msg)
+        raise InfiniteRecursivityError(cycle_items, call_graph)
 
-def format_error_msg(graph, cycle_nodes):
-    msg = 'Infinite recursion: ' + str(cycle_nodes)
-    # for i in range(len(cycle_nodes)-1):
-    #     n1 = cycle_nodes[i]
-    #     n2 = cycle_nodes[i + 1]
-    #     label = graph.edge_label((n1, n2))
-    #     msg += '%s %s %s,' % (n1, label, n2)
+
+def format_recursive_msg(tpl_name, e):
+    cycle_items = e.cycle_items
+    if tpl_name in cycle_items:
+        index = cycle_items.index(tpl_name)
+        # rotate list such that tpl_name is the first
+        cycle_items = cycle_items[index:] + cycle_items[:index]
+    msg = ''
+    msg_pattern = '<%s> uses (%s) <%s>, '
+    for i in range(len(cycle_items) - 1):
+        n1 = cycle_items[i]
+        n2 = cycle_items[i + 1]
+        label = e.graph.edge_label((n1, n2))
+        msg += msg_pattern % (n1, label, n2)
+    msg += msg_pattern[0:-2] % (cycle_items[-1], label, cycle_items[0])
     return msg
+
 
 def get_called_templates(tpl_string, caller):
     try:
@@ -80,14 +94,24 @@ class CalledTemplatesParser(DebugParser):
             token = self.next_token()
             if token.token_type == 2: # TOKEN_BLOCK
                 try:
-                    command = token.contents.split()[0]
-                    if command in ['extends', 'include', 'ssi']:
-                        callee = self.get_clean_callee(token)
+                    command = token.split_contents()[0]
+                    callee = ''
+                    if command == 'load':
+                        compile_func = self.tags[command]
+                        compiled_result = compile_func(self, token)
+                    elif command in ['extends', 'include', 'ssi']:
+                        callee = self.clean_callee(token.contents.split()[1])
+                    elif command in ['show_menu', 'show_menu_below_id',
+                                   'show_sub_menu', 'show_breadcrumb']:
+                        compile_func = self.tags[command]
+                        compiled_result = compile_func(self, token)
+                        callee = compiled_result.kwargs['template'].literal
+                        callee = self.clean_callee(callee)
+                    if callee:
                         called_templates.append((callee, command, caller))
                 except IndexError:
                     pass
         return called_templates
 
-    def get_clean_callee(self, token):
-        callee = token.contents.split()[1]
+    def clean_callee(self, callee):
         return callee.replace("'", "\"")[1:-1]
