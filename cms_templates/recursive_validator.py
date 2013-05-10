@@ -50,7 +50,7 @@ def update_call_graph(call_graph, called_tpls):
             pass
 
         try:
-            #add edge (callee tpl ---> caller tpl), label=extends, include, etc
+            #add edge (caller tpl ---> callee tpl), label=extends, include, etc
             call_graph.add_edge((item[2], item[0]), label=item[1])
         except AdditionError:
             pass
