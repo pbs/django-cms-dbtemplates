@@ -58,15 +58,11 @@ def cycle_test(call_graph, called_tpls):
 
 
 def format_recursive_msg(tpl_name, e):
-    cycle_items = list(e.cycle_items)
-    if tpl_name in cycle_items:
-        index = cycle_items.index(tpl_name)
-        # rotate list such that tpl_name is the first
-        cycle_items = cycle_items[index:] + cycle_items[:index]
+    tpl_name_index = e.cycle_items.index(tpl_name) if tpl_name in e.cycle_items else 0
     msg = ''
-    for i in range(len(cycle_items)):
-        n1 = cycle_items[i]
-        n2 = cycle_items[(i + 1) % len(cycle_items)]
+    for i in range(len(e.cycle_items)):
+        n1 = e.cycle_items[tpl_name_index + i]
+        n2 = e.cycle_items[(tpl_name_index + i + 1) % len(e.cycle_items)]
         label = e.graph.edge_label((n1, n2))
         msg +=  '<%s> uses (%s) <%s>, ' % (n1, label, n2)
     return msg
