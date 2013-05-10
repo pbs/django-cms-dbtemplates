@@ -61,7 +61,7 @@ def format_recursive_msg(tpl_name, e):
     tpl_name_index = e.cycle_items.index(tpl_name) if tpl_name in e.cycle_items else 0
     msg = ''
     for i in range(len(e.cycle_items)):
-        n1 = e.cycle_items[tpl_name_index + i]
+        n1 = e.cycle_items[(tpl_name_index + i) % len(e.cycle_items)]
         n2 = e.cycle_items[(tpl_name_index + i + 1) % len(e.cycle_items)]
         label = e.graph.edge_label((n1, n2))
         msg +=  '<%s> uses (%s) <%s>, ' % (n1, label, n2)
