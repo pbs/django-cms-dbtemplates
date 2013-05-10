@@ -45,6 +45,7 @@ def handle_recursive_calls(tpl_name, content):
 def update_call_graph(call_graph, called_tpls):
     for item in called_tpls:
         try:
+            #add callee node to graph
             call_graph.add_node(item[0])
         except:
             pass
