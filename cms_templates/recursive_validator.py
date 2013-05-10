@@ -95,26 +95,24 @@ class CalledTemplatesParser(DebugParser):
         while self.tokens:
             token = self.next_token()
             if token.token_type == 2: # TOKEN_BLOCK
-                try:
-                    command = token.split_contents()[0]
-                    callee = ''
-                    if command == 'load':
-                        #load tag needs to be compiled so that the extra tags
-                        # (like the ones for menu) can be recognized as tokens
-                        compile_func = self.tags[command]
-                        compile_func(self, token)
-                    elif command in ['extends', 'include', 'ssi']:
-                        callee = self.clean_callee(token.contents.split()[1])
-                    elif command in ['show_menu', 'show_menu_below_id',
-                                   'show_sub_menu', 'show_breadcrumb']:
-                        compile_func = self.tags[command]
-                        compiled_result = compile_func(self, token)
-                        callee = compiled_result.kwargs['template'].literal
-                        callee = self.clean_callee(callee)
-                    if callee:
-                        called_templates.append((callee, command, caller))
-                except IndexError:
-                    pass
+                command = token.split_contents()[0]
+                callee = ''
+                if command == 'load':
+                    #load tag needs to be compiled so that the extra tags
+                    # (like the ones for menu) can be recognized as tokens
+                    compile_func = self.tags[command]
+                    compile_func(self, token)
+                elif command in ['extends', 'include', 'ssi']:
+                    callee = self.clean_callee(token.contents.split()[1])
+                elif command in ['show_menu', 'show_menu_below_id',
+                                 'show_sub_menu', 'show_breadcrumb']:
+                    compile_func = self.tags[command]
+                    compiled_result = compile_func(self, token)
+                    callee = compiled_result.kwargs['template'].literal
+                    callee = self.clean_callee(callee)
+                if callee:
+                    called_templates.append((callee, command, caller))
+
         return called_templates
 
     def clean_callee(self, callee):
