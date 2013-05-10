@@ -16,6 +16,8 @@ class InfiniteRecursivityError(Exception):
 
 def handle_recursive_calls(tpl_name, content):
     call_graph = digraph()
+    # visited_templates items will look like this:
+    # [("tpl1", "extends", "tpl2"), ...]
     visited_templates = [(tpl_name, '', '')]
     call_graph.add_node(tpl_name)
     i = 0
@@ -29,7 +31,7 @@ def handle_recursive_calls(tpl_name, content):
 
         called_tpls = get_called_templates(tpl_content, name)
 
-        #raises ValidationError in case of a cycle
+        #raises InfiniteRecursivityError in case of a cycle
         cycle_test(call_graph, called_tpls)
 
         visited_templates.extend(called_tpls)
