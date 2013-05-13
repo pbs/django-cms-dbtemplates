@@ -15,6 +15,8 @@ from restricted_admin_decorators import restricted_has_delete_permission, \
 from django.template.base import TemplateDoesNotExist
 from template_analyzer import get_all_templates_used
 from django.db.models import Q, Count
+from recursive_validator import handle_recursive_calls, \
+    InfiniteRecursivityError, format_recursive_msg
 
 
 def _get_registered_modeladmin(model):
@@ -64,6 +66,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         'not_found': ('Template: {0} not found.'),
         'missing_sites': ('The following sites have to be assigned to '
             'template {0}: {1}'),
+        'infinite_recursivity': ('Infinite template recursivity: {0}'),
     }
 
     def __init__(self, *args, **kwargs):
@@ -163,8 +166,16 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             return cleaned_data
 
         initial_setting = getattr(settings, 'TEMPLATE_DEBUG')
+
         try:
             setattr(settings, 'TEMPLATE_DEBUG', True)
+
+            try:
+                handle_recursive_calls(cleaned_data['name'], cleaned_data['content'])
+            except InfiniteRecursivityError, e:
+                msg = format_recursive_msg(cleaned_data['name'], e)
+                raise ValidationError(
+                    self._error_msg('infinite_recursivity', msg))
 
             required_sites = [site.domain for site in cleaned_data['sites']]
 
@@ -203,6 +214,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         except:
             setattr(settings, 'TEMPLATE_DEBUG', initial_setting)
             raise
+
 
 allways = ('creation_date', 'last_changed')
 ro = ('name', 'content', 'sites') + allways
