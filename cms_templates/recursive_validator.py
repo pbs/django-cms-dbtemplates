@@ -3,7 +3,9 @@ from django.utils.encoding import smart_unicode
 from django.template import TemplateEncodingError, \
     TemplateSyntaxError, StringOrigin
 from django.template.loader import find_template
-from digraph import digraph, find_cycle, AdditionError
+from pygraph.classes.digraph import digraph
+from pygraph.algorithms.cycles import find_cycle
+from pygraph.classes.exceptions import AdditionError
 from dbtemplates.models import Template
 
 
