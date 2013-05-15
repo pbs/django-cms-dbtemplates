@@ -69,8 +69,6 @@ def get_restricted_instances(site_id=None):
         f = Q(sites=Site.objects.get(pk=site_id))
     else:
         f = Q(sites=Site.objects.get_current())
-    if getattr(Template, "restriction_fields"):
-        f |= Q(restriction_fields__pbs_provided=True)
     return Template.objects.filter(f).distinct()
 
 

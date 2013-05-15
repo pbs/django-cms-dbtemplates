@@ -283,9 +283,15 @@ class TestTemplateValidation(TestCase):
         self.assertTemplatesFormValidationMessage(err_key, response)
 
     def _update_template(self, name, content, sites, _id=None):
+        from datetime import datetime
+        _date = datetime.now()
         url = self._templ_url(_id) if _id else self._templ_url()
         response = self.client.post(url,
-            {'name': name, 'content': content, 'sites': sites})
+            {'name': name, 'content': content, 'sites': sites,
+             'creation_date_0': ('2012-02-01'),
+             'creation_date_1': ('11:43:40'),
+             'last_changed_0': (_date.strftime("%Y-%m-%d")),
+             'last_changed_1': (_date.strftime("%H:%M:%S"))})
         self.assertEquals(response.status_code, 302)
 
     def test_syntax_error(self):

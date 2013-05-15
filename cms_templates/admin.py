@@ -213,9 +213,6 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             setattr(settings, 'TEMPLATE_DEBUG', initial_setting)
             raise
 
-allways = ('creation_date', 'last_changed')
-ro = ('name', 'content', 'sites') + allways
-
 
 class RestrictedTemplateAdmin(RegisteredTemplateAdmin):
     list_filter = ('sites__name', )
