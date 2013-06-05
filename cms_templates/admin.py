@@ -5,7 +5,6 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.forms import ModelMultipleChoiceField
-from django.utils.translation import ugettext_lazy as _
 from dbtemplates.models import Template
 from cms.models import Page
 from django.template import (Template as _Template, TemplateSyntaxError)
