@@ -13,6 +13,7 @@ from template_analyzer import get_all_templates_used
 from django.db.models import Q, Count
 from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError, format_recursive_msg
+from django_cms_blog.models import BlogRiverPlugin
 
 
 def _get_registered_modeladmin(model):
@@ -34,6 +35,8 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         'page_template_use': ('Site {0} has pages with templates '
             'that depend on this template. Delete these pages or use different '
             'template for them before unassigning the site.'),
+        'blog_river_template_use': ('Cannot unassign site {0} from '
+            'template {1}. There are pages with blog river(s) using template {1}.'),
         'site_template_use': ('Cannot unassign site {0} from '
             'template {1}. Template {1} is used by template {2} which has '
             'site {0} assigned. Both templates need to be unassigned from '
@@ -156,6 +159,16 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 if self.instance.name in compiled.get(template_name):
                     raise ValidationError(self._error_msg(
                         'site_template_use', domain, self.instance.name, template_name))
+
+        self._check_blog_river_templates(assigned)
+
+    def _check_blog_river_templates(self, assigned):
+        about_to_be_unasigned = self.instance.sites.exclude(id__in=assigned)
+        for s in about_to_be_unasigned:
+            tpls = _get_blog_river_templates(s)
+            if self.instance.name in tpls:
+                raise ValidationError(self._error_msg(
+                    'blog_river_template_use', s.name, self.instance))
 
     def clean(self):
         cleaned_data = super(ExtendedTemplateAdminForm, self).clean()
@@ -308,6 +321,8 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             templates_required = set(self.instance.page_set
                 .exclude(template__in=list(assigned_names) + ['INHERIT'])
                 .values_list('template', flat=True).distinct())
+            blog_river_tpls = _get_blog_river_templates(self.instance)
+            templates_required.update([tpl for tpl in blog_river_tpls if tpl not in assigned_names])
 
             if templates_required:
                 all_existing_templates = set(Template.objects.all()
@@ -352,6 +367,13 @@ class ExtendedSiteAdminForm(SiteAdminForm):
                 instance.save()
             self.save_m2m()
         return instance
+
+
+def _get_blog_river_templates(site):
+    pages = site.page_set.all()
+    tpls = BlogRiverPlugin.objects.filter(placeholder__page__in=pages).\
+                  values_list('blog_river_template__name', flat=True)
+    return list(set(tpls))
 
 
 class ExtendedSiteAdmin(RegisteredSiteAdmin):
