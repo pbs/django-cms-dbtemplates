@@ -123,9 +123,10 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 Q(id__in=assigned) | Q(page__template='INHERIT'))
             .values_list('page__template', 'domain').distinct())
 
+        sites_about_to_be_unassigned = self.instance.sites.exclude(id__in=assigned)
         unassigned_site_templates = {
             s.domain: s.template_set.all().values_list('name', flat=True)
-            for s in self.instance.sites.exclude(id__in=assigned)}
+            for s in sites_about_to_be_unassigned}
 
         if not (unassigned_page_templates or unassigned_site_templates):
             return
@@ -160,11 +161,8 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                     raise ValidationError(self._error_msg(
                         'site_template_use', domain, self.instance.name, template_name))
 
-        self._check_blog_river_templates(assigned)
-
-    def _check_blog_river_templates(self, assigned):
-        about_to_be_unasigned = self.instance.sites.exclude(id__in=assigned)
-        for s in about_to_be_unasigned:
+        for s in sites_about_to_be_unassigned:
+            # check if it is used by blog rivers templates
             tpls = _get_blog_river_templates(s)
             if self.instance.name in tpls:
                 raise ValidationError(self._error_msg(
@@ -322,7 +320,7 @@ class ExtendedSiteAdminForm(SiteAdminForm):
                 .exclude(template__in=list(assigned_names) + ['INHERIT'])
                 .values_list('template', flat=True).distinct())
             blog_river_tpls = _get_blog_river_templates(self.instance)
-            templates_required.update([tpl for tpl in blog_river_tpls if tpl not in assigned_names])
+            templates_required |= blog_river_tpls - assigned_names
 
             if templates_required:
                 all_existing_templates = set(Template.objects.all()
@@ -373,7 +371,7 @@ def _get_blog_river_templates(site):
     pages = site.page_set.all()
     tpls = BlogRiverPlugin.objects.filter(placeholder__page__in=pages).\
                   values_list('blog_river_template__name', flat=True)
-    return list(set(tpls))
+    return set(tpls)
 
 
 class ExtendedSiteAdmin(RegisteredSiteAdmin):
