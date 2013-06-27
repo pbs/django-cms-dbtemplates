@@ -3,6 +3,7 @@ from django.template.loader_tags import (BaseIncludeNode,
 from sekizai.templatetags.sekizai_tags import RenderBlock
 from sekizai.helpers import is_variable_extend_node, _extend_blocks
 from django.template import VariableNode, NodeList
+from menus.templatetags.menu_tags import ShowMenu
 
 
 # modified _extend_nodelist from sekizai.helpers
@@ -60,6 +61,11 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
                 current_block.super.nodelist, current_block.super)
         elif isinstance(node, BlockNode) and node.name in ignore_blocks:
             continue
+        elif isinstance(node, ShowMenu):
+            from django.utils.safestring import SafeUnicode
+            var = node.kwargs['template'].var.var
+            if isinstance(var, SafeUnicode):
+                found.append(var)
         elif hasattr(node, 'child_nodelists'):
             for child_lst in node.child_nodelists:
                 _found_to_add, current_block = _scan_nodelist(
