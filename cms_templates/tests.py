@@ -13,6 +13,7 @@ from urlparse import urljoin
 from cms.test_utils.testcases import (CMSTestCase,
                                       URL_CMS_PAGE,
                                       URL_CMS_PAGE_ADD,)
+
 from mock import patch
 import re
 
@@ -512,71 +513,93 @@ class TestTemplateValidation(TestCase):
             'templA', 'content', [1], 'missing_template_use', templA.id)
 
     def test_site_has_all_templates_required(self):
-        created = []
-        for t_name in ['templA', 'templB', 'templC', 'templD']:
-            templ = Template.objects.create(name=t_name)
-            templ.content = "content"
-            templ.save()
-            created.append(templ)
-        templA, templB, templC, templD = tuple(created)
+        with patch('cms_templates.admin.cms_tpl_settings') as mock_settings:
+            mock_settings.PLUGIN_TEMPLATE_REFERENCES = []
 
-        templA.content = '{% extends "templB" %}'
-        templB.content = '{% include "templC" %}'
-        templC.content = 'content'
+            created = []
+            for t_name in ['templA', 'templB', 'templC', 'templD']:
+                templ = Template.objects.create(name=t_name)
+                templ.content = "content"
+                templ.save()
+                created.append(templ)
+            templA, templB, templC, templD = tuple(created)
 
-        for t_instance in [templA, templB, templC]:
-            t_instance.save()
+            templA.content = '{% extends "templB" %}'
+            templB.content = '{% include "templC" %}'
+            templC.content = 'content'
 
-        self._trigger_validation_error_on_site_form(
-            "siteA", "siteA.com", [templA.id], 'all_required')
+            for t_instance in [templA, templB, templC]:
+                t_instance.save()
 
-        s = Site.objects.get(id=1)
+            self._trigger_validation_error_on_site_form(
+                "siteA", "siteA.com", [templA.id], 'all_required')
 
-        self._trigger_validation_error_on_site_form(
-            s.name, s.domain, [templA.id], 'all_required', s.id)
+            s = Site.objects.get(id=1)
 
-        templC.content = '{% invalid_tag %}'
-        templC.save()
+            self._trigger_validation_error_on_site_form(
+                s.name, s.domain, [templA.id], 'all_required', s.id)
 
-        self._trigger_validation_error_on_site_form(
-            s.name, s.domain, [templA.id], 'syntax_error', s.id)
+            templC.content = '{% invalid_tag %}'
+            templC.save()
 
-        templC.content = '{% extends "NonExistent" %}'
-        templC.save()
+            self._trigger_validation_error_on_site_form(
+                s.name, s.domain, [templA.id], 'syntax_error', s.id)
 
-        self._trigger_validation_error_on_site_form(
-            s.name, s.domain, [templA.id], 'required_not_exist', s.id)
+            templC.content = '{% extends "NonExistent" %}'
+            templC.save()
 
-        templC.content = 'content'
-        templC.save()
+            self._trigger_validation_error_on_site_form(
+                s.name, s.domain, [templA.id], 'required_not_exist', s.id)
 
-        p = Page(template="templD", site=s)
-        p.save()
+            templC.content = 'content'
+            templC.save()
 
-        self._trigger_validation_error_on_site_form(
-            s.name, s.domain, [templA.id, templB.id, templC.id],
-            'required_in_pages', s.id)
+            p = Page(template="templD", site=s)
+            p.save()
 
-        templD.sites.clear()
+            self._trigger_validation_error_on_site_form(
+                s.name, s.domain, [templA.id, templB.id, templC.id],
+                'required_in_pages', s.id)
 
-        self._trigger_validation_error_on_site_form(
-            s.name, s.domain, [templA.id, templB.id, templC.id],
-            'required_in_pages', s.id)
+            templD.sites.clear()
 
-        Page.objects.filter(id=p.id).update(template='NonExistent')
+            self._trigger_validation_error_on_site_form(
+                s.name, s.domain, [templA.id, templB.id, templC.id],
+                'required_in_pages', s.id)
 
-        self._trigger_validation_error_on_site_form(
-            s.name, s.domain, [templA.id, templB.id, templC.id],
-            'nonexistent_in_pages', s.id)
+            Page.objects.filter(id=p.id).update(template='NonExistent')
 
-        Page.objects.filter(id=p.id).update(template='templA')
+            self._trigger_validation_error_on_site_form(
+                s.name, s.domain, [templA.id, templB.id, templC.id],
+                'nonexistent_in_pages', s.id)
 
-        templD.sites.add(s)
+            Page.objects.filter(id=p.id).update(template='templA')
 
-        self._trigger_validation_error_on_site_form(
-            s.name, s.domain, [templA.id, templB.id, templC.id],
-            'orphan', s.id)
+            templD.sites.add(s)
 
+            self._trigger_validation_error_on_site_form(
+                s.name, s.domain, [templA.id, templB.id, templC.id],
+                'orphan', s.id)
+
+    def test_show_menu_tag_template(self):
+        with patch('cms_templates.admin.cms_tpl_settings') as mock_settings:
+            mock_settings.PLUGIN_TEMPLATE_REFERENCES = []
+
+            templ_menu = Template.objects.create(name='menu')
+            templ_menu.content = "{% load menu_tags %} {% show_menu 0 100 100 100 'sub-menu' %}"
+            templ_menu.save()
+
+            templ_sub_menu = Template.objects.create(name='sub-menu')
+            templ_sub_menu.content = "content"
+            templ_sub_menu.save()
+
+            s = Site.objects.get(id=1)
+            p = Page(template="menu", site=s)
+            p.save()
+
+            self._trigger_validation_error_on_site_form(
+                s.name, s.domain, [templ_menu.id],
+                'all_required', s.id)
 
 from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError
