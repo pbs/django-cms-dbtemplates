@@ -372,7 +372,7 @@ class ExtendedSiteAdminForm(SiteAdminForm):
 def _get_external_plugins_templates(site):
     templates = set([])
     for plugin_tuple in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
-        templates |= _get_plugin_templates(site, plugin_tuple[0])
+        templates |= set(_get_plugin_templates(site, plugin_tuple[0]))
     return set(templates)
 
 
