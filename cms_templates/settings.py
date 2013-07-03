@@ -12,7 +12,7 @@ restrict_user = getattr(settings, 'DBTEMPLATES_RESTRICT_USER', False)
    in the example below.
 
    The 'site' parameter is mandatory.
-   The return type has to be a set.
+   The return type should be a list/queryset.
    The templates returned can then be used in the validation process.
 
    class Plugin(CMSPluginBase):
@@ -23,8 +23,7 @@ restrict_user = getattr(settings, 'DBTEMPLATES_RESTRICT_USER', False)
        @classmethod
        def get_templates(cls, site, **kwargs):
            pages = site.page_set.all()
-           tpls = cls.model.objects.filter(placeholder__page__in=pages).\
-                     values_list('template__name', flat=True)
-           return set(tpls)
+           return cls.model.objects.filter(placeholder__page__in=pages).\
+                     values_list('template__name', flat=True).distinct()
 """
 PLUGIN_TEMPLATE_REFERENCES = [('CMSBlogRiverPlugin', 'Blog River Plugin')]
