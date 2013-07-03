@@ -321,8 +321,8 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             templates_required = set(self.instance.page_set
                 .exclude(template__in=list(assigned_names) + ['INHERIT'])
                 .values_list('template', flat=True).distinct())
-            blog_river_tpls = _get_external_plugins_templates(self.instance)
-            templates_required |= blog_river_tpls - assigned_names
+            external_plugis_tpls = _get_external_plugins_templates(self.instance)
+            templates_required |= external_plugis_tpls - assigned_names
 
             if templates_required:
                 all_existing_templates = set(Template.objects.all()
