@@ -376,15 +376,21 @@ def _get_external_plugins_templates(site):
     return set(templates)
 
 
+import logging
+logger = logging.getLogger(__package__)
+
+
 def _get_plugin_templates(site, plg_name):
     try:
         plugin_cls = plugin_pool.get_plugin(plg_name)
         return plugin_cls.get_templates(site)
     except KeyError:
-        raise KeyError('setting PLUGIN_TEMPLATE_REFERENCES improperly configured: '
+        logger.warning('setting PLUGIN_TEMPLATE_REFERENCES improperly configured: '
                        'cms plugin %s not found.' % plg_name)
     except AttributeError:
-        raise AttributeError('cms plugin %s must implement \'get_templates\' class method.')
+        logger.warning('cms plugin %s must implement \'get_templates\' class method.')
+
+    return set([])
 
 
 class ExtendedSiteAdmin(RegisteredSiteAdmin):
