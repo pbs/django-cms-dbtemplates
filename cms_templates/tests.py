@@ -13,6 +13,7 @@ from urlparse import urljoin
 from cms.test_utils.testcases import (CMSTestCase,
                                       URL_CMS_PAGE,
                                       URL_CMS_PAGE_ADD,)
+
 from mock import patch
 import re
 
@@ -219,7 +220,40 @@ class AdminParentChildInheritTest(CMSTestCase):
         return last_page.id
 
 
-class TestTemplateValidation(TestCase):
+class TestTemplateValidationBaseMixin(object):
+
+    def _site_url(self, site_id=None):
+        return self._build_url(Site, site_id)
+
+    def _build_url(self, model, instance_id=None):
+        args, url = ((instance_id, ), "admin:%s_%s_change") if instance_id \
+            else ((), "admin:%s_%s_add")
+        return urlresolvers.reverse(url % (
+            model._meta.app_label, model._meta.module_name),
+        args=args)
+
+    def _trigger_validation_error_on_site_form(
+            self, name, domain, templates, err_key, _id=None):
+        url = self._site_url(_id) if _id else self._site_url()
+        response = self.client.post(url,
+            {'name': name, 'domain': domain, 'templates': templates})
+        self.assertEquals(response.status_code, 200)
+        self.assertTemplatesFormValidationMessage(err_key, response)
+
+    def assertTemplatesFormValidationMessage(self, error_msg_key, response):
+        form = response.context['adminform'].form
+        error = form.errors['templates'][0]
+        self._matches_error_message(
+            error, form.custom_error_messages[error_msg_key])
+
+    def _matches_error_message(self, msg, error_pattern):
+        str_pieces = set(re.split('({\d+})', error_pattern)) -\
+            set(re.findall('({\d+})', error_pattern))
+        for str_piece in str_pieces:
+            self.assertTrue(str_piece in msg)
+
+
+class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
 
     def setUp(self):
         username = 'test_templates_user'
@@ -235,34 +269,12 @@ class TestTemplateValidation(TestCase):
         session.save()
         self.client.get('/admin/')
 
-    def _build_url(self, model, instance_id=None):
-        args, url = ((instance_id, ), "admin:%s_%s_change") if instance_id \
-            else ((), "admin:%s_%s_add")
-        return urlresolvers.reverse(url % (
-            model._meta.app_label, model._meta.module_name),
-        args=args)
-
-    def _site_url(self, site_id=None):
-        return self._build_url(Site, site_id)
-
     def _templ_url(self, template_id=None):
         return self._build_url(Template, template_id)
-
-    def _matches_error_message(self, msg, error_pattern):
-        str_pieces = set(re.split('({\d+})', error_pattern)) -\
-            set(re.findall('({\d+})', error_pattern))
-        for str_piece in str_pieces:
-            self.assertTrue(str_piece in msg)
 
     def assertFormValidationMessage(self, error_msg_key, response):
         form = response.context['adminform'].form
         error = form.errors['__all__'][0]
-        self._matches_error_message(
-            error, form.custom_error_messages[error_msg_key])
-
-    def assertTemplatesFormValidationMessage(self, error_msg_key, response):
-        form = response.context['adminform'].form
-        error = form.errors['templates'][0]
         self._matches_error_message(
             error, form.custom_error_messages[error_msg_key])
 
@@ -273,14 +285,6 @@ class TestTemplateValidation(TestCase):
             {'name': name, 'content': content, 'sites': sites})
         self.assertEquals(response.status_code, 200)
         self.assertFormValidationMessage(err_key, response)
-
-    def _trigger_validation_error_on_site_form(
-            self, name, domain, templates, err_key, _id=None):
-        url = self._site_url(_id) if _id else self._site_url()
-        response = self.client.post(url,
-            {'name': name, 'domain': domain, 'templates': templates})
-        self.assertEquals(response.status_code, 200)
-        self.assertTemplatesFormValidationMessage(err_key, response)
 
     def _update_template(self, name, content, sites, _id=None):
         from datetime import datetime
@@ -577,6 +581,22 @@ class TestTemplateValidation(TestCase):
             s.name, s.domain, [templA.id, templB.id, templC.id],
             'orphan', s.id)
 
+    def test_show_menu_tag_template(self):
+        templ_menu = Template.objects.create(name='menu')
+        templ_menu.content = "{% load menu_tags %} {% show_menu 0 100 100 100 'sub-menu' %}"
+        templ_menu.save()
+
+        templ_sub_menu = Template.objects.create(name='sub-menu')
+        templ_sub_menu.content = "content"
+        templ_sub_menu.save()
+
+        s = Site.objects.get(id=1)
+        p = Page(template="menu", site=s)
+        p.save()
+
+        self._trigger_validation_error_on_site_form(
+            s.name, s.domain, [templ_menu.id],
+            'all_required', s.id)
 
 from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError

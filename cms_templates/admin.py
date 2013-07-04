@@ -13,6 +13,8 @@ from template_analyzer import get_all_templates_used
 from django.db.models import Q, Count
 from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError, format_recursive_msg
+from cms.plugin_pool import plugin_pool
+from cms_templates import settings as cms_tpl_settings
 
 
 def _get_registered_modeladmin(model):
@@ -34,6 +36,8 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         'page_template_use': ('Site {0} has pages with templates '
             'that depend on this template. Delete these pages or use different '
             'template for them before unassigning the site.'),
+        'external_plugin_template_use': ('Cannot unassign site {0} from '
+            'template {2}. There are pages with {1}(s) using template {2}.'),
         'site_template_use': ('Cannot unassign site {0} from '
             'template {1}. Template {1} is used by template {2} which has '
             'site {0} assigned. Both templates need to be unassigned from '
@@ -120,9 +124,10 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 Q(id__in=assigned) | Q(page__template='INHERIT'))
             .values_list('page__template', 'domain').distinct())
 
+        sites_about_to_be_unassigned = self.instance.sites.exclude(id__in=assigned)
         unassigned_site_templates = {
             s.domain: s.template_set.all().values_list('name', flat=True)
-            for s in self.instance.sites.exclude(id__in=assigned)}
+            for s in sites_about_to_be_unassigned}
 
         if not (unassigned_page_templates or unassigned_site_templates):
             return
@@ -156,6 +161,15 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 if self.instance.name in compiled.get(template_name):
                     raise ValidationError(self._error_msg(
                         'site_template_use', domain, self.instance.name, template_name))
+
+        for site in sites_about_to_be_unassigned:
+            # check if it is used by other cms plugins
+            for plugin in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
+                if self.instance.name in _get_plugin_templates(site, plugin):
+                    plugin_cls = plugin_pool.get_plugin(plugin)
+                    raise ValidationError(self._error_msg(
+                        'external_plugin_template_use', \
+                        site.name, plugin_cls.name, self.instance))
 
     def clean(self):
         cleaned_data = super(ExtendedTemplateAdminForm, self).clean()
@@ -308,6 +322,8 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             templates_required = set(self.instance.page_set
                 .exclude(template__in=list(assigned_names) + ['INHERIT'])
                 .values_list('template', flat=True).distinct())
+            external_plugis_tpls = _get_external_plugins_templates(self.instance)
+            templates_required |= external_plugis_tpls - assigned_names
 
             if templates_required:
                 all_existing_templates = set(Template.objects.all()
@@ -352,6 +368,30 @@ class ExtendedSiteAdminForm(SiteAdminForm):
                 instance.save()
             self.save_m2m()
         return instance
+
+
+def _get_external_plugins_templates(site):
+    templates = set([])
+    for plugin in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
+        templates |= set(_get_plugin_templates(site, plugin))
+    return templates
+
+
+import logging
+logger = logging.getLogger(__package__)
+
+
+def _get_plugin_templates(site, plg_name):
+    try:
+        plugin_cls = plugin_pool.get_plugin(plg_name)
+        return plugin_cls.get_templates(site)
+    except KeyError:
+        logger.warning('setting PLUGIN_TEMPLATE_REFERENCES improperly configured: '
+                       'cms plugin %s not found.' % plg_name)
+    except AttributeError:
+        logger.warning('cms plugin %s must implement \'get_templates\' class method.')
+
+    return set([])
 
 
 class ExtendedSiteAdmin(RegisteredSiteAdmin):
