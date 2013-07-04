@@ -5,7 +5,7 @@ include_orphan = getattr(settings, 'DBTEMPLATES_INCLUDE_ORPHAN', False)
 restrict_user = getattr(settings, 'DBTEMPLATES_RESTRICT_USER', False)
 
 """
-   This is a list of ('Plugin', 'Pretty name') tuples, where 'Plugin'
+   This is a list of ('Plugin') tuples, where 'Plugin'
    is a CMSPluginBase derivative and registered in cms plugin pool.
 
    The Plugin class must define 'get_templates' class method like
@@ -26,4 +26,4 @@ restrict_user = getattr(settings, 'DBTEMPLATES_RESTRICT_USER', False)
            return cls.model.objects.filter(placeholder__page__in=pages).\
                      values_list('template__name', flat=True).distinct()
 """
-PLUGIN_TEMPLATE_REFERENCES = [('CMSBlogRiverPlugin', 'Blog River Plugin')]
+PLUGIN_TEMPLATE_REFERENCES = ['CMSBlogRiverPlugin']

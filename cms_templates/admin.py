@@ -164,11 +164,12 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
 
         for site in sites_about_to_be_unassigned:
             # check if it is used by other cms plugins
-            for plugin_tuple in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
-                if self.instance.name in _get_plugin_templates(site, plugin_tuple[0]):
+            for plugin in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
+                if self.instance.name in _get_plugin_templates(site, plugin):
+                    plugin_cls = plugin_pool.get_plugin(plugin)
                     raise ValidationError(self._error_msg(
                         'external_plugin_template_use', \
-                        site.name, plugin_tuple[1], self.instance))
+                        site.name, plugin_cls.name, self.instance))
 
     def clean(self):
         cleaned_data = super(ExtendedTemplateAdminForm, self).clean()
@@ -371,8 +372,8 @@ class ExtendedSiteAdminForm(SiteAdminForm):
 
 def _get_external_plugins_templates(site):
     templates = set([])
-    for plugin_tuple in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
-        templates |= set(_get_plugin_templates(site, plugin_tuple[0]))
+    for plugin in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
+        templates |= set(_get_plugin_templates(site, plugin))
     return templates
 
 
