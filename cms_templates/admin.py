@@ -1,23 +1,24 @@
-from django.contrib import admin
-from django.contrib.admin.sites import NotRegistered
 from django.contrib.sites.models import Site
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.db.models import Q, Count
 from django.forms import ModelMultipleChoiceField
-from dbtemplates.models import Template
-from cms.models import Page
 from django.template import (Template as _Template, TemplateSyntaxError)
 from django.template.base import TemplateDoesNotExist
-from template_analyzer import get_all_templates_used
-from django.db.models import Q, Count
-from recursive_validator import handle_recursive_calls, \
-    InfiniteRecursivityError, format_recursive_msg
+
+from cms.models import Page
 from cms.plugin_pool import plugin_pool
 from cms_templates import settings as cms_tpl_settings
 
+from dbtemplates.models import Template
+
 from admin_extend.extend import registered_form, registered_modeladmin, \
     extend_registered, add_bidirectional_m2m
+
+from cms_templates.template_analyzer import get_all_templates_used
+from cms_templates.recursive_validator import handle_recursive_calls, \
+    InfiniteRecursivityError, format_recursive_msg
 
 
 class ExtendedTemplateAdminForm(registered_form(Template)):
