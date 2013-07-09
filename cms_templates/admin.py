@@ -16,18 +16,11 @@ from recursive_validator import handle_recursive_calls, \
 from cms.plugin_pool import plugin_pool
 from cms_templates import settings as cms_tpl_settings
 
-
-def _get_registered_modeladmin(model):
-    """ This is a huge hack to get the registered modeladmin for the model.
-        We need this functionality in case someone else already registered
-        a different modeladmin for this model. """
-    return type(admin.site._registry[model])
-
-RegisteredTemplateAdmin = _get_registered_modeladmin(Template)
-TemplateAdminForm = RegisteredTemplateAdmin.form
+from admin_extend.extend import registered_form, registered_modeladmin, \
+    extend_registered, add_bidirectional_m2m
 
 
-class ExtendedTemplateAdminForm(TemplateAdminForm):
+class ExtendedTemplateAdminForm(registered_form(Template)):
 
     custom_error_messages = {
         'page_use': ('Site {0} has pages that are currently using '
@@ -227,13 +220,15 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             raise
 
 
-class RestrictedTemplateAdmin(RegisteredTemplateAdmin):
+@extend_registered
+class RestrictedTemplateAdmin(registered_modeladmin(Template)):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
     form = ExtendedTemplateAdminForm
 
 
-class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
+@extend_registered
+class DynamicTemplatesPageAdmin(registered_modeladmin(Page)):
     def get_form(self, request, obj=None, **kwargs):
         f = super(DynamicTemplatesPageAdmin, self).get_form(
             request, obj, **kwargs)
@@ -242,12 +237,9 @@ class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
         return f
 
 
-RegisteredSiteAdmin = _get_registered_modeladmin(Site)
-SiteAdminForm = RegisteredSiteAdmin.form
-
-
-class ExtendedSiteAdminForm(SiteAdminForm):
-    templates = ModelMultipleChoiceField(
+@extend_registered
+class ExtendedSiteAdminForm(add_bidirectional_m2m(registered_form(Site))):
+    template = ModelMultipleChoiceField(
         queryset=Template.objects.all(),
         required=False,
         widget=FilteredSelectMultiple(
@@ -255,6 +247,10 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             is_stacked=False
         )
     )
+
+    def _get_bidirectinal_m2m_fields(self):
+        return super(ExtendedSiteAdminForm, self).\
+            _get_bidirectinal_m2m_fields() + ['template']
 
     custom_error_messages = {
         'syntax_error': ('Template {0} or some of the templates it uses have '
@@ -275,11 +271,6 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             'of this site and need to be assigned to this site: {0}'),
         'orphan': ('Following templates will remain with no sites assigned: {0}'),
     }
-
-    def __init__(self, *args, **kwargs):
-        super(ExtendedSiteAdminForm, self).__init__(*args, **kwargs)
-        if self.instance.pk is not None:
-            self.fields['templates'].initial = self.instance.template_set.all()
 
     def _error_msg(self, msg_key, *args):
         return self.custom_error_messages[msg_key].format(*args)
@@ -353,22 +344,6 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             setattr(settings, 'TEMPLATE_DEBUG', initial_setting)
             raise
 
-    def save(self, commit=True):
-        instance = super(ExtendedSiteAdminForm, self).save(commit=False)
-        # If the object is new, we need to force save it, whether commit
-        # is True or False, otherwise setting the template_set would fail
-        # This would cause the object to be saved twice if used in an
-        # InlineFormSet
-        force_save = self.instance.pk is None
-        if force_save:
-            instance.save()
-        instance.template_set = self.cleaned_data['templates']
-        if commit:
-            if not force_save:
-                instance.save()
-            self.save_m2m()
-        return instance
-
 
 def _get_external_plugins_templates(site):
     templates = set([])
@@ -392,26 +367,3 @@ def _get_plugin_templates(site, plg_name):
         logger.warning('cms plugin %s must implement \'get_templates\' class method.')
 
     return set([])
-
-
-class ExtendedSiteAdmin(RegisteredSiteAdmin):
-    form = ExtendedSiteAdminForm
-
-
-try:
-    admin.site.unregister(Template)
-except NotRegistered:
-    pass
-admin.site.register(Template, RestrictedTemplateAdmin)
-
-try:
-    admin.site.unregister(Page)
-except NotRegistered:
-    pass
-admin.site.register(Page, DynamicTemplatesPageAdmin)
-
-try:
-    admin.site.unregister(Site)
-except NotRegistered:
-    pass
-admin.site.register(Site, ExtendedSiteAdmin)

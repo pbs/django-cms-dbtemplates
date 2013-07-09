@@ -11,6 +11,7 @@ dependencies = [
     'django-cms>=2.3.1pbs, <2.3.6',
     'django-dbtemplates>=1.4.1pbs, <1.5',
     'python-graph-core==1.8.2',
+    'django-admin-extend==0.0.1',
 ]
 
 
