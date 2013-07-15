@@ -249,9 +249,9 @@ class ExtendedSiteAdminForm(add_bidirectional_m2m(registered_form(Site))):
         )
     )
 
-    def _get_bidirectinal_m2m_fields(self):
+    def _get_bidirectional_m2m_fields(self):
         return super(ExtendedSiteAdminForm, self).\
-            _get_bidirectinal_m2m_fields() + [('templates', 'template_set')]
+            _get_bidirectional_m2m_fields() + [('templates', 'template_set')]
 
     custom_error_messages = {
         'syntax_error': ('Template {0} or some of the templates it uses have '
