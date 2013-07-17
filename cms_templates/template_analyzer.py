@@ -69,6 +69,7 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
                 var = node.kwargs['template'].var.var
                 if isinstance(var, SafeUnicode):
                     found.append(var)
+                    found += get_all_templates_used(node)
             except:
                 #all the other cases are not important for this method
                 # since they are not a dbtemplates.models.Template name

@@ -609,6 +609,30 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
     def test_show_breadcrumb_tag_template(self):
         self._test_menu_tag_template("{% show_breadcrumb 2 'sub-menu' %}")
 
+    def test_menu_and_sub_menu_tag_template(self):
+        s = Site.objects.get(id=1)
+
+        templ_menu = Template.objects.create(name='menu')
+        templ_menu.content = "{% load menu_tags %} {% show_menu 0 100 100 100 'sub-menu' %}"
+        templ_menu.save()
+
+        templ_sub_menu = Template.objects.create(name='sub-menu')
+        templ_sub_menu.content = "{% load menu_tags %} {% show_menu 0 100 100 100 'sub-sub-menu' %}"
+        templ_sub_menu.save()
+        templ_sub_menu.sites.add(s)
+
+        templ_sub_sub_menu = Template.objects.create(name='sub-sub-menu')
+        templ_sub_sub_menu.content = "content"
+        templ_sub_sub_menu.save()
+
+        p = Page(template="menu", site=s)
+        p.save()
+
+        self._trigger_validation_error_on_site_form(
+            s.name, s.domain, [templ_menu.id, templ_sub_menu.id],
+            'all_required', s.id)
+
+
     def test_empty_menu_tags_template(self):
         templ_menu = Template.objects.create(name='menu')
         templ_menu.content = """
