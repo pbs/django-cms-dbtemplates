@@ -177,25 +177,25 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             return cleaned_data
 
         initial_setting = getattr(settings, 'TEMPLATE_DEBUG')
-
         try:
             setattr(settings, 'TEMPLATE_DEBUG', True)
-
-            try:
-                handle_recursive_calls(cleaned_data['name'], cleaned_data['content'])
-            except InfiniteRecursivityError, e:
-                msg = format_recursive_msg(cleaned_data['name'], e)
-                raise ValidationError(
-                    self._error_msg('infinite_recursivity', msg))
 
             required_sites = [site.domain for site in cleaned_data['sites']]
 
             try:
                 compiled_template = _Template(cleaned_data.get('content'))
+
+                #here the template syntax is valid
+                handle_recursive_calls(cleaned_data['name'], cleaned_data['content'])
+
                 used_templates = get_all_templates_used(compiled_template.nodelist)
             except TemplateSyntaxError, e:
                 raise ValidationError(
                     self._error_msg('syntax_error', cleaned_data['name'], e))
+            except InfiniteRecursivityError, e:
+                msg = format_recursive_msg(cleaned_data['name'], e)
+                raise ValidationError(
+                    self._error_msg('infinite_recursivity', msg))
             except TemplateDoesNotExist, e:
                 try:
                     existing_template = Template.objects.get(name=str(e))
