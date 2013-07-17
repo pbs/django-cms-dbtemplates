@@ -4,7 +4,6 @@ from sekizai.templatetags.sekizai_tags import RenderBlock
 from sekizai.helpers import is_variable_extend_node, _extend_blocks
 from django.template import VariableNode, NodeList
 from menus.templatetags.menu_tags import ShowMenu, ShowSubMenu, ShowBreadcrumb
-from django.utils.safestring import SafeUnicode
 from dbtemplates.models import Template
 from django.template import (Template as _Template, TemplateSyntaxError)
 
