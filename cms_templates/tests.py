@@ -16,6 +16,8 @@ from cms.test_utils.testcases import (CMSTestCase,
 
 from mock import patch
 import re
+from recursive_validator import handle_recursive_calls, \
+    InfiniteRecursivityError
 
 
 def _fix_lang_url(url):
@@ -581,9 +583,9 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
             s.name, s.domain, [templA.id, templB.id, templC.id],
             'orphan', s.id)
 
-    def test_show_menu_tag_template(self):
+    def _test_menu_tag_template(self, tag_expression):
         templ_menu = Template.objects.create(name='menu')
-        templ_menu.content = "{% load menu_tags %} {% show_menu 0 100 100 100 'sub-menu' %}"
+        templ_menu.content = "{% load menu_tags %}" + tag_expression
         templ_menu.save()
 
         templ_sub_menu = Template.objects.create(name='sub-menu')
@@ -598,8 +600,64 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
             s.name, s.domain, [templ_menu.id],
             'all_required', s.id)
 
-from recursive_validator import handle_recursive_calls, \
-    InfiniteRecursivityError
+    def test_show_menu_tag_template(self):
+        self._test_menu_tag_template("{% show_menu 0 100 100 100 'sub-menu' %}")
+
+    def test_show_sub_menu_tag_template(self):
+        self._test_menu_tag_template("{% show_sub_menu 1 'sub-menu' %}")
+
+    def test_show_breadcrumb_tag_template(self):
+        self._test_menu_tag_template("{% show_breadcrumb 2 'sub-menu' %}")
+
+    def test_menu_and_sub_menu_tag_template(self):
+        s = Site.objects.get(id=1)
+
+        templ_menu = Template.objects.create(name='menu')
+        templ_menu.content = "{% load menu_tags %} {% show_menu 0 100 100 100 'sub-menu' %}"
+        templ_menu.save()
+
+        templ_sub_menu = Template.objects.create(name='sub-menu')
+        templ_sub_menu.content = "{% load menu_tags %} {% show_menu 0 100 100 100 'sub-sub-menu' %}"
+        templ_sub_menu.save()
+        templ_sub_menu.sites.add(s)
+
+        templ_sub_sub_menu = Template.objects.create(name='sub-sub-menu')
+        templ_sub_sub_menu.content = "content"
+        templ_sub_sub_menu.save()
+
+        p = Page(template="menu", site=s)
+        p.save()
+
+        self._trigger_validation_error_on_site_form(
+            s.name, s.domain, [templ_menu.id, templ_sub_menu.id],
+            'all_required', s.id)
+
+
+    def test_empty_menu_tags_template(self):
+        templ_menu = Template.objects.create(name='menu')
+        templ_menu.content = """
+           {% load menu_tags %}
+           <html>
+           <head>
+           </head>
+           <body>
+           {% show_menu %}
+           {% show_sub_menu 1 %}
+           {% show_menu_below_id "meta" %}
+           {% show_breadcrumb %}
+           </body>
+           </html>
+        """
+        templ_menu.save()
+
+        s = Site.objects.get(id=1)
+        p = Page(template="menu", site=s)
+        p.save()
+
+        url = self._site_url()
+        response = self.client.post(url,
+            {'name': s.name, 'domain': s.domain, 'templates': [templ_menu.id]})
+        self.assertEquals(response.status_code, 302)
 
 
 class InfiniteRecursivityErrorTest(TestCase):
