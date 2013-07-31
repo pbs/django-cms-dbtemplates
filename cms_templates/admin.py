@@ -14,7 +14,6 @@ from django.db.models import Q, Count
 from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError, format_recursive_msg
 from cms.plugin_pool import plugin_pool
-from cms_templates import settings as cms_tpl_settings
 
 
 def _get_registered_modeladmin(model):
@@ -164,7 +163,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
 
         for site in sites_about_to_be_unassigned:
             # check if it is used by other cms plugins
-            for plugin in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
+            for plugin in settings.PLUGIN_TEMPLATE_REFERENCES:
                 if self.instance.name in _get_plugin_templates(site, plugin):
                     plugin_cls = plugin_pool.get_plugin(plugin)
                     raise ValidationError(self._error_msg(
@@ -273,6 +272,13 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             'site assigned.'),
         'required_in_pages': ('The following templates are used by the pages '
             'of this site and need to be assigned to this site: {0}'),
+        'nonexistent_in_plugins': ('There are pages with plugins that use '
+            'the following nonexistent templates: {0}. Change/delete the '
+            'plugins that uses them, or just create them with this '
+            'site assigned.'),
+        'required_in_plugins': ('The following templates are used by plugins'
+            ' in the pages of this site and need to be assigned to this '
+            'site: {0}'),
         'orphan': ('Following templates will remain with no sites assigned: {0}'),
     }
 
@@ -322,19 +328,29 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             templates_required = set(self.instance.page_set
                 .exclude(template__in=list(assigned_names) + ['INHERIT'])
                 .values_list('template', flat=True).distinct())
-            external_plugis_tpls = _get_external_plugins_templates(self.instance)
-            templates_required |= external_plugis_tpls - assigned_names
 
-            if templates_required:
+            external_plugis_tpls = _get_external_plugins_templates(self.instance)
+            external_plugis_tpls -= assigned_names
+
+            if templates_required or external_plugis_tpls:
                 all_existing_templates = set(Template.objects.all()
                     .values_list('name', flat=True))
-                if not templates_required <= all_existing_templates:
+
+                nonexistent = templates_required - all_existing_templates
+                if nonexistent:
                     raise ValidationError(self._error_msg(
-                        'nonexistent_in_pages',
-                        ', '.join(templates_required - all_existing_templates)))
-                else:
+                        'nonexistent_in_pages', ', '.join(nonexistent)))
+                nonexistent = external_plugis_tpls - all_existing_templates
+                if nonexistent:
+                    raise ValidationError(self._error_msg(
+                        'nonexistent_in_plugins', ', '.join(nonexistent)))
+
+                if templates_required:
                     raise ValidationError(self._error_msg(
                         'required_in_pages', ', '.join(templates_required)))
+                if external_plugis_tpls:
+                    raise ValidationError(self._error_msg(
+                        'required_in_plugins', ', '.join(external_plugis_tpls)))
 
             pks = [s.pk for s in assigned_templates]
             unassigned = self.instance.template_set.exclude(pk__in=pks)\
@@ -372,7 +388,7 @@ class ExtendedSiteAdminForm(SiteAdminForm):
 
 def _get_external_plugins_templates(site):
     templates = set([])
-    for plugin in cms_tpl_settings.PLUGIN_TEMPLATE_REFERENCES:
+    for plugin in settings.PLUGIN_TEMPLATE_REFERENCES:
         templates |= set(_get_plugin_templates(site, plugin))
     return templates
 

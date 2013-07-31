@@ -66,4 +66,4 @@ TEMPLATE_LOADERS = (
     'cms_templates.loader.CmsTemplatesLoader',
     )
 CACHE_BACKEND='locmem:///'
-
+PLUGIN_TEMPLATE_REFERENCES = ['PluginBaseA', 'PluginBaseB', 'PluginBaseC']
