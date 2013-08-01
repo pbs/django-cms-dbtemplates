@@ -284,10 +284,7 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
         url = self._site_url(_id) if _id else self._site_url()
         response = self.client.post(url,
             {'name': name, 'domain': domain, 'templates': templates})
-        self.assertIn(response.status_code, [302, 200])
-        if response.context:
-            form = response.context['adminform'].form
-            self.assertEquals(len(form.errors), 0)
+        self.assertEquals(response.status_code, 302)
 
     def _trigger_validation_error_on_template_form(
             self, name, content, sites, err_key, _id=None):
@@ -673,16 +670,16 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
             name='pluginB_template', content='a')
         page_template = Template.objects.create(
             name='page_template', content='a')
-        pluginCD_template = Template.objects.create(
-            name='pluginCD_template', content='a')
-        site = Site.objects.get(id=1)
+        pluginC_template = Template.objects.create(
+            name='pluginC_template', content='a')
+        site = Site.objects.create(name='s1', domain='example1.com')
         site2 = Site.objects.create(name='s2', domain='example2.com')
         site.template_set.add(
             pluginA_template, pluginB_template,
-            page_template, pluginCD_template)
+            page_template, pluginC_template)
         site2.template_set.add(
             pluginA_template, pluginB_template,
-            page_template, pluginCD_template)
+            page_template, pluginC_template)
         p = Page.objects.create(template=page_template.name, site=site)
         phd = Placeholder.objects.create(slot='main')
         p.placeholders.add(phd)
@@ -696,7 +693,7 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
             placeholder=phd)
         plgC = PluginModelC.objects.create(
             plugin_type='PluginC',
-            templ_name=pluginCD_template.name,
+            templ_name=pluginC_template.name,
             placeholder=phd)
 
         # since plgD is not registered in PLUGIN_TEMPLATE_REFERENCES it
@@ -710,9 +707,17 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
             site.name, site.domain, [pluginB_template.id, page_template.id],
             'required_in_plugins', site.id)
 
+        self._trigger_validation_error_on_template_form(
+            pluginA_template.name, 'content', [1],
+            'plugin_template_use', _id=pluginA_template.id)
+
         self._trigger_validation_error_on_site_form(
             site.name, site.domain, [pluginA_template.id, page_template.id],
             'required_in_plugins', site.id)
+
+        self._trigger_validation_error_on_template_form(
+            pluginB_template.name, 'content', [1],
+            'plugin_template_use', _id=pluginB_template.id)
 
         PluginModelB.objects.filter(id=plgB.id).update(
             some_template_name='NonExistent')

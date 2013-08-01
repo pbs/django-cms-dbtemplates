@@ -15,6 +15,7 @@ from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError, format_recursive_msg
 from cms.plugin_pool import plugin_pool
 from functools import wraps
+from collections import defaultdict
 
 
 def with_template_debug_on(clean_func):
@@ -50,8 +51,9 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         'page_template_use': ('Site {0} has pages with templates '
             'that depend on this template. Delete these pages or use different '
             'template for them before unassigning the site.'),
-        'external_plugin_template_use': ('Cannot unassign site {0} from '
-            'template {2}. There are pages with {1}(s) using template {2}.'),
+        'plugin_template_use': ('Cannot unassign site {0} from this '
+            'template. There are pages with plugins({1}) that are currently '
+            'using this template.'),
         'site_template_use': ('Cannot unassign site {0} from '
             'template {1}. Template {1} is used by template {2} which has '
             'site {0} assigned. Both templates need to be unassigned from '
@@ -124,10 +126,10 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                     'missing_template_use', template_name, e))
 
     def _build_template_site_dict(self, list_of_tuples):
-        new_dict = {}
+        new_dict = defaultdict(list)
         for pair in list_of_tuples:
             template, site = pair[0], pair[1]
-            new_dict.update({site: new_dict.get(site, []) + [template]})
+            new_dict[site].append(template)
         return new_dict
 
     def _validate_unassigned_sites(self, cleaned_data):
@@ -145,45 +147,38 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
 
         if not (unassigned_page_templates or unassigned_site_templates):
             return
-
+        current_templ = self.instance.name
         compiled = {}
         for domain, templates in unassigned_page_templates.iteritems():
             # check if it used by pages
-            if self.instance.name in templates:
+            if current_templ in templates:
                 raise ValidationError(self._error_msg('page_use', domain))
 
             # check if it is used by templates of pages
             for template_name in templates:
+                _templs_of_template = compiled.setdefault(template_name,
+                    self._get_used_templates(template_name, domain, True))
 
-                if template_name not in compiled:
-                    compiled[template_name] = self._get_used_templates(
-                        template_name, domain, True)
-
-                if self.instance.name in compiled.get(template_name):
+                if current_templ in _templs_of_template:
                     raise ValidationError(self._error_msg(
                         'page_template_use', domain))
 
         for domain, other_templates in unassigned_site_templates.iteritems():
             # check if it is used by templates of the unassigned site
-
             for template_name in other_templates:
+                _templs_of_template = compiled.setdefault(template_name,
+                    self._get_used_templates(template_name, domain, False))
 
-                if template_name not in compiled:
-                    compiled[template_name] = self._get_used_templates(
-                        template_name, domain, False)
-
-                if self.instance.name in compiled.get(template_name):
+                if current_templ in _templs_of_template:
                     raise ValidationError(self._error_msg(
-                        'site_template_use', domain, self.instance.name, template_name))
+                        'site_template_use', domain, current_templ, template_name))
 
         for site in sites_about_to_be_unassigned:
-            # check if it is used by other cms plugins
-            for plugin in settings.PLUGIN_TEMPLATE_REFERENCES:
-                if self.instance.name in _get_templates_from_plugin(site, plugin):
-                    plugin_cls = plugin_pool.get_plugin(plugin)
-                    raise ValidationError(self._error_msg(
-                        'external_plugin_template_use', \
-                        site.name, plugin_cls.name, self.instance))
+            templ_with_plugins = get_plugin_templates_from_site(site)
+            if current_templ in templ_with_plugins:
+                raise ValidationError(self._error_msg(
+                    'plugin_template_use', site.domain,
+                    ', '.join(templ_with_plugins[current_templ])))
 
     @with_template_debug_on
     def clean(self):
@@ -335,10 +330,10 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             .exclude(template__in=list(assigned_names) + ['INHERIT'])
             .values_list('template', flat=True).distinct())
 
-        external_plugis_tpls = get_plugin_templates_from_site(self.instance)
-        external_plugis_tpls -= assigned_names
+        templ_with_plugins = get_plugin_templates_from_site(self.instance)
+        plugins_templ = set(templ_with_plugins.keys()) - assigned_names
 
-        if templates_required or external_plugis_tpls:
+        if templates_required or plugins_templ:
             all_existing_templates = set(Template.objects.all()
                 .values_list('name', flat=True))
 
@@ -346,7 +341,7 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             if nonexistent:
                 raise ValidationError(self._error_msg(
                     'nonexistent_in_pages', ', '.join(nonexistent)))
-            nonexistent = external_plugis_tpls - all_existing_templates
+            nonexistent = plugins_templ - all_existing_templates
             if nonexistent:
                 raise ValidationError(self._error_msg(
                     'nonexistent_in_plugins', ', '.join(nonexistent)))
@@ -354,9 +349,9 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             if templates_required:
                 raise ValidationError(self._error_msg(
                     'required_in_pages', ', '.join(templates_required)))
-            if external_plugis_tpls:
+            if plugins_templ:
                 raise ValidationError(self._error_msg(
-                    'required_in_plugins', ', '.join(external_plugis_tpls)))
+                    'required_in_plugins', ', '.join(plugins_templ)))
 
         pks = [s.pk for s in assigned_templates]
         unassigned = self.instance.template_set.exclude(pk__in=pks)\
@@ -403,7 +398,7 @@ for plugin_name in settings.PLUGIN_TEMPLATE_REFERENCES:
     plugin_class = plugin_pool.get_plugin(plugin_name)
     if not hasattr(plugin_class, 'get_template_field_name'):
         raise AttributeError(
-            'CMS plugin %s must implement \'get_template_field_name\''
+            'CMS plugin %s must implement \'get_template_field_name\' '
             'staticmethod.' % plugin_name)
 
     model_opts = plugin_class.model._meta
@@ -424,10 +419,11 @@ for plugin_name in settings.PLUGIN_TEMPLATE_REFERENCES:
 
 
 def get_plugin_templates_from_site(site):
-    templates = []
+    templates = defaultdict(set)
     for plugin in settings.PLUGIN_TEMPLATE_REFERENCES:
-        templates += _get_templates_from_plugin(site, plugin)
-    return set(templates)
+        for template in _get_templates_from_plugin(site, plugin):
+            templates[template].add(plugin)
+    return templates
 
 
 def _get_template_name_attr(model, field_name):
