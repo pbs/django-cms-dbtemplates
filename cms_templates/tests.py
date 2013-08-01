@@ -284,7 +284,10 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
         url = self._site_url(_id) if _id else self._site_url()
         response = self.client.post(url,
             {'name': name, 'domain': domain, 'templates': templates})
-        self.assertEquals(response.status_code, 200)
+        self.assertIn(response.status_code, [302, 200])
+        if response.context:
+            form = response.context['adminform'].form
+            self.assertEquals(len(form.errors), 0)
 
     def _trigger_validation_error_on_template_form(
             self, name, content, sites, err_key, _id=None):
@@ -664,43 +667,69 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
         self.assertEquals(response.status_code, 302)
 
     def test_plugin_templates(self):
-        t1 = Template.objects.create(name='t1', content='a')
-        t2 = Template.objects.create(name='t2', content='a')
-        t3 = Template.objects.create(name='t3', content='a')
-        t4 = Template.objects.create(name='t4', content='a')
+        pluginA_template = Template.objects.create(
+            name='pluginA_template', content='a')
+        pluginB_template = Template.objects.create(
+            name='pluginB_template', content='a')
+        page_template = Template.objects.create(
+            name='page_template', content='a')
+        pluginCD_template = Template.objects.create(
+            name='pluginCD_template', content='a')
         site = Site.objects.get(id=1)
         site2 = Site.objects.create(name='s2', domain='example2.com')
-        site.template_set.add(t1, t2, t3, t4)
-        site2.template_set.add(t1, t2, t3, t4)
-        p = Page.objects.create(template=t3.name, site=site)
+        site.template_set.add(
+            pluginA_template, pluginB_template,
+            page_template, pluginCD_template)
+        site2.template_set.add(
+            pluginA_template, pluginB_template,
+            page_template, pluginCD_template)
+        p = Page.objects.create(template=page_template.name, site=site)
         phd = Placeholder.objects.create(slot='main')
         p.placeholders.add(phd)
         plgA = PluginModelA.objects.create(
-            plugin_type='PluginA', some_template=t1, placeholder=phd)
+            plugin_type='PluginA',
+            some_template=pluginA_template,
+            placeholder=phd)
         plgB = PluginModelB.objects.create(
-            plugin_type='PluginB', some_template_name=t2.name, placeholder=phd)
+            plugin_type='PluginB',
+            some_template_name=pluginB_template.name,
+            placeholder=phd)
         plgC = PluginModelC.objects.create(
-            plugin_type='PluginC', templ_name=t4.name, placeholder=phd)
-        plgD = PluginModelC.objects.create(
-            plugin_type='PluginD', templ_name=t4.name, placeholder=phd)
+            plugin_type='PluginC',
+            templ_name=pluginCD_template.name,
+            placeholder=phd)
 
-        # since plgC does not have a get_template class method it shouldn't
-        #   throw validation error
-        self._no_validation_error_on_site_form(
-            site.name, site.domain, [t4.id, t3.id], site.id)
-
-        # since plgd is not registered in PLUGIN_TEMPLATE_REFERENCES it
+        # since plgD is not registered in PLUGIN_TEMPLATE_REFERENCES it
         #   shouldn't throw validation error
         self._no_validation_error_on_site_form(
-            site.name, site.domain, [t4.id, t3.id], site.id)
+            site.name, site.domain,
+            [pluginA_template.id, pluginB_template.id, page_template.id],
+            site.id)
 
         self._trigger_validation_error_on_site_form(
-            site.name, site.domain, [t2.id, t3.id],
+            site.name, site.domain, [pluginB_template.id, page_template.id],
             'required_in_plugins', site.id)
 
         self._trigger_validation_error_on_site_form(
-            site.name, site.domain, [t1.id, t3.id],
+            site.name, site.domain, [pluginA_template.id, page_template.id],
             'required_in_plugins', site.id)
+
+        PluginModelB.objects.filter(id=plgB.id).update(
+            some_template_name='NonExistent')
+
+        self._trigger_validation_error_on_site_form(
+            site.name, site.domain, [pluginA_template.id, page_template.id],
+            'nonexistent_in_plugins', site.id)
+
+        PluginModelC.objects.filter(id=plgC.id).update(
+            templ_name='NonExistent')
+        PluginModelB.objects.filter(id=plgB.id).update(
+            some_template_name=pluginB_template.name)
+
+        self._no_validation_error_on_site_form(
+            site.name, site.domain,
+            [pluginA_template.id, pluginB_template.id, page_template.id],
+            site.id)
 
 
 class InfiniteRecursivityErrorTest(TestCase):

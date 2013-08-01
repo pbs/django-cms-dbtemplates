@@ -2,15 +2,15 @@ from django.contrib import admin
 from django.contrib.admin.sites import NotRegistered
 from django.contrib.sites.models import Site
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ImproperlyConfigured
 from django.conf import settings
 from django.forms import ModelMultipleChoiceField
-from dbtemplates.models import Template
-from cms.models import Page
 from django.template import (Template as _Template, TemplateSyntaxError)
 from django.template.base import TemplateDoesNotExist
+from django.db.models import Q, Count, fields
 from template_analyzer import get_all_templates_used
-from django.db.models import Q, Count
+from cms.models import Page
+from dbtemplates.models import Template
 from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError, format_recursive_msg
 from cms.plugin_pool import plugin_pool
@@ -179,7 +179,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         for site in sites_about_to_be_unassigned:
             # check if it is used by other cms plugins
             for plugin in settings.PLUGIN_TEMPLATE_REFERENCES:
-                if self.instance.name in _get_plugin_templates(site, plugin):
+                if self.instance.name in _get_templates_from_plugin(site, plugin):
                     plugin_cls = plugin_pool.get_plugin(plugin)
                     raise ValidationError(self._error_msg(
                         'external_plugin_template_use', \
@@ -335,7 +335,7 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             .exclude(template__in=list(assigned_names) + ['INHERIT'])
             .values_list('template', flat=True).distinct())
 
-        external_plugis_tpls = _get_external_plugins_templates(self.instance)
+        external_plugis_tpls = get_plugin_templates_from_site(self.instance)
         external_plugis_tpls -= assigned_names
 
         if templates_required or external_plugis_tpls:
@@ -389,28 +389,63 @@ class ExtendedSiteAdminForm(SiteAdminForm):
         return instance
 
 
-def _get_external_plugins_templates(site):
-    templates = set([])
+# validate PLUGIN_TEMPLATE_REFERENCES configuration
+_VALID_TEMPLATE_FIELDS = [fields.related.ForeignKey, fields.CharField]
+for plugin_name in settings.PLUGIN_TEMPLATE_REFERENCES:
+    # make sure all plugins are dicovered
+    plugin_pool.get_all_plugins()
+
+    if plugin_name not in plugin_pool.plugins:
+        raise ImproperlyConfigured(
+            'setting PLUGIN_TEMPLATE_REFERENCES improperly configured: '
+            'CMS Plugin %s not found' % plugin_name)
+
+    plugin_class = plugin_pool.get_plugin(plugin_name)
+    if not hasattr(plugin_class, 'get_template_field_name'):
+        raise AttributeError(
+            'CMS plugin %s must implement \'get_template_field_name\''
+            'staticmethod.' % plugin_name)
+
+    model_opts = plugin_class.model._meta
+    field_name = plugin_class.get_template_field_name()
+    if field_name not in model_opts.get_all_field_names():
+        raise fields.FieldDoesNotExist(
+            'CMS plugin %s must implement \'get_template_field_name\' '
+            'class method that returns a valid model template field '
+            'name.' % plugin_name)
+
+    field_type = model_opts.get_field_by_name(field_name)[0].__class__
+    if field_type not in _VALID_TEMPLATE_FIELDS:
+        raise AttributeError(
+            'CMS Plugin %s method \'get_template_field_name\' must return '
+            'the name of a valid template field. The template field '
+            'type must be one of: %s' % (
+                plugin_name, ','.join(_VALID_TEMPLATE_FIELDS)))
+
+
+def get_plugin_templates_from_site(site):
+    templates = []
     for plugin in settings.PLUGIN_TEMPLATE_REFERENCES:
-        templates |= set(_get_plugin_templates(site, plugin))
-    return templates
+        templates += _get_templates_from_plugin(site, plugin)
+    return set(templates)
 
 
-import logging
-logger = logging.getLogger(__package__)
+def _get_template_name_attr(model, field_name):
+    field_type = model._meta.get_field_by_name(field_name)[0].__class__
+    is_str = field_type is fields.CharField
+    return field_name if is_str else '%s__name' % field_name
 
 
-def _get_plugin_templates(site, plg_name):
-    try:
-        plugin_cls = plugin_pool.get_plugin(plg_name)
-        return plugin_cls.get_templates(site)
-    except KeyError:
-        logger.warning('setting PLUGIN_TEMPLATE_REFERENCES improperly configured: '
-                       'cms plugin %s not found.' % plg_name)
-    except AttributeError:
-        logger.warning('cms plugin %s must implement \'get_templates\' class method.')
+def _get_templates_from_plugin(site, plugin_name):
+    plugin_class = plugin_pool.get_plugin(plugin_name)
+    field_name = plugin_class.get_template_field_name()
+    template_name_attr = _get_template_name_attr(
+        plugin_class.model, field_name)
 
-    return set([])
+    return plugin_class.model.objects.filter(**{
+        'placeholder__page__site': site,
+        '%s__isnull' % field_name: False
+    }).values_list(template_name_attr, flat=True)
 
 
 class ExtendedSiteAdmin(RegisteredSiteAdmin):

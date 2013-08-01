@@ -17,30 +17,22 @@ class PluginModelC(CMSPlugin):
     templ_name = models.CharField(max_length=100)
 
 
-class PluginModelD(CMSPlugin):
-    templ_name = models.CharField(max_length=100)
-
-
 class PluginBaseA(CMSPluginBase):
     model = PluginModelA
     name = "Plugin A"
 
-    @classmethod
-    def get_templates(cls, site, **kwargs):
-        return cls.model.objects.filter(
-            placeholder__page__site=site, some_template__isnull=False).\
-            values_list('some_template__name', flat=True).distinct()
+    @staticmethod
+    def get_template_field_name():
+        return 'some_template'
 
 
 class PluginBaseB(CMSPluginBase):
     model = PluginModelB
     name = "Plugin B"
 
-    @classmethod
-    def get_templates(cls, site, **kwargs):
-        return cls.model.objects.filter(
-            placeholder__page__site=site, some_template_name__isnull=False).\
-            values_list('some_template_name', flat=True).distinct()
+    @staticmethod
+    def get_template_field_name():
+        return 'some_template_name'
 
 
 class PluginBaseC(CMSPluginBase):
@@ -48,12 +40,6 @@ class PluginBaseC(CMSPluginBase):
     name = "Plugin C"
 
 
-class PluginBaseD(CMSPluginBase):
-    model = PluginModelD
-    name = "Plugin D"
-
-
 plugin_pool.register_plugin(PluginBaseA)
 plugin_pool.register_plugin(PluginBaseB)
 plugin_pool.register_plugin(PluginBaseC)
-plugin_pool.register_plugin(PluginBaseD)
