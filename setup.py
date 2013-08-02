@@ -10,7 +10,7 @@ dependencies = [
     'django>=1.4.1, <1.5',
     'django-cms>=2.3.5pbs, <2.3.6',
     'django-dbtemplates>=1.4.1pbs, <1.5',
-    'python-graph-core==1.8.2',
+    'python-graph-core',
 ]
 
 
