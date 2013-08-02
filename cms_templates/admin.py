@@ -38,6 +38,12 @@ def _get_registered_modeladmin(model):
         a different modeladmin for this model. """
     return type(admin.site._registry[model])
 
+
+def _format_pages(page_qs):
+    return ', '.join(['%s(%d)' % (page.get_title() or '', page.id)
+                      for page in page_qs])
+
+
 RegisteredTemplateAdmin = _get_registered_modeladmin(Template)
 TemplateAdminForm = RegisteredTemplateAdmin.form
 
@@ -45,24 +51,25 @@ TemplateAdminForm = RegisteredTemplateAdmin.form
 class ExtendedTemplateAdminForm(TemplateAdminForm):
 
     custom_error_messages = {
-        'page_use': ('Site {0} has pages that are currently using '
-            'this template. Delete these pages or use different template for '
+        'page_use': ('Site {0} has the following pages that are currently using '
+            'this template: {1}. Delete these pages or use different template for '
             'them before unassigning the site.'),
-        'page_template_use': ('Site {0} has pages with templates '
-            'that depend on this template. Delete these pages or use different '
-            'template for them before unassigning the site.'),
+        'page_template_use': ('Site {0} has pages with template {1} assigned.'
+            ' Template {1} requires this template. Delete the following '
+            'pages or use different template for them before unassigning the'
+            ' site: {2}.'),
         'plugin_template_use': ('Cannot unassign site {0} from this '
-            'template. There are pages with plugins({1}) that are currently '
-            'using this template.'),
+            'template. Following pages have plugins({1}) that are currently '
+            'using this template: {2}'),
         'site_template_use': ('Cannot unassign site {0} from '
             'template {1}. Template {1} is used by template {2} which has '
             'site {0} assigned. Both templates need to be unassigned from '
             'this site. Do this change from the site admin view.'),
-        'nonexistent_in_pages': ('Template {0} is used by pages of the '
-            'site {1} and does not exist. In order to unassign this site you '
-            'must fix this error. Create this nonexistent template, delete the '
-            'pages that uses it or just change the templates from pages with '
-            'templates that are available for use.'),
+        'nonexistent_in_pages': ('Template {0} is used by the following '
+            'pages of the site {1} and does not exist: {2}. Create this '
+            'nonexistent template, delete the pages that uses it or just '
+            'change the template from pages with a template that is '
+            'available for use.'),
         'syntax_error_unassigning': ('Syntax error in template {0} or in the '
             'templates that depend on it: {1}. Fix this syntax error before '
             'unassigning site: {2}.'),
@@ -101,18 +108,21 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             raise ValidationError(self._error_msg(
                 'missing_sites', template.name, ', '.join(need_assigning)))
 
-    def _get_used_templates(self, template_name, site_name, pages_search):
+    def _get_used_templates(self, template_name, site_domain, pages_search):
         try:
             template = Template.objects.get(name=template_name)
             return set(get_all_templates_used(_Template(
                 template.content).nodelist))
         except Template.DoesNotExist:
             if pages_search:
+                _pages = Page.objects.filter(
+                    site__domain=site_domain, template=template_name)
                 raise ValidationError(self._error_msg(
-                    'nonexistent_in_pages', template_name, site_name))
+                    'nonexistent_in_pages', template_name, site_domain,
+                    _format_pages(_pages)))
         except TemplateSyntaxError, e:
             raise ValidationError(self._error_msg(
-                'syntax_error_unassigning', template_name, e, site_name))
+                'syntax_error_unassigning', template_name, e, site_domain))
         except TemplateDoesNotExist, e:
             try:
                 # for orphan templates
@@ -120,7 +130,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                 raise ValidationError(self._error_msg(
                     'orphan_in_page' if pages_search
                         else 'orphan_unassigned_to_site',
-                        templ_with_missing_site.name, site_name))
+                        templ_with_missing_site.name, site_domain))
             except Template.DoesNotExist:
                 raise ValidationError(self._error_msg(
                     'missing_template_use', template_name, e))
@@ -131,6 +141,7 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
             template, site = pair[0], pair[1]
             new_dict[site].append(template)
         return new_dict
+
 
     def _validate_unassigned_sites(self, cleaned_data):
         assigned = cleaned_data['sites'].values_list('id', flat=True)
@@ -147,12 +158,16 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
 
         if not (unassigned_page_templates or unassigned_site_templates):
             return
+
         current_templ = self.instance.name
         compiled = {}
         for domain, templates in unassigned_page_templates.iteritems():
             # check if it used by pages
             if current_templ in templates:
-                raise ValidationError(self._error_msg('page_use', domain))
+                _pages = Page.objects.filter(
+                    site__domain=domain, template=current_templ)
+                raise ValidationError(self._error_msg(
+                    'page_use', domain, _format_pages(_pages)))
 
             # check if it is used by templates of pages
             for template_name in templates:
@@ -160,8 +175,11 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
                     self._get_used_templates(template_name, domain, True))
 
                 if current_templ in _templs_of_template:
+                    _pages = Page.objects.filter(
+                        site__domain=domain, template=template_name)
                     raise ValidationError(self._error_msg(
-                        'page_template_use', domain))
+                        'page_template_use', domain, template_name,
+                        _format_pages(_pages)))
 
         for domain, other_templates in unassigned_site_templates.iteritems():
             # check if it is used by templates of the unassigned site
@@ -176,9 +194,13 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         for site in sites_about_to_be_unassigned:
             templ_with_plugins = get_plugin_templates_from_site(site)
             if current_templ in templ_with_plugins:
+                _page_ids = get_pages_for_plugins_templates(
+                    site, current_templ, templ_with_plugins[current_templ])
+                _pages = Page.objects.filter(id__in=_page_ids)
                 raise ValidationError(self._error_msg(
                     'plugin_template_use', site.domain,
-                    ', '.join(templ_with_plugins[current_templ])))
+                    ', '.join(templ_with_plugins[current_templ]),
+                    _format_pages(_pages)))
 
     @with_template_debug_on
     def clean(self):
@@ -270,18 +292,17 @@ class ExtendedSiteAdminForm(SiteAdminForm):
         'all_required': ('Template(s) {0} are required by template {1}. Assign '
             'or unassign them all.'),
         'nonexistent_in_pages': ('There are pages that use the following '
-            'nonexistent templates: {0}. Change the pages that uses them, '
-            'delete the pages that uses them or just create them with this '
-            'site assigned.'),
-        'required_in_pages': ('The following templates are used by the pages '
-            'of this site and need to be assigned to this site: {0}'),
+            'nonexistent templates: {0}. Change/delete the following pages '
+            'that uses them or just create them with this site assigned: {1}.'),
+        'required_in_pages': ('Templates {0} are used by the following pages '
+            'of this site and need to be assigned to this site: {1}'),
         'nonexistent_in_plugins': ('There are pages with plugins that use '
             'the following nonexistent templates: {0}. Change/delete the '
             'plugins that uses them, or just create them with this '
-            'site assigned.'),
-        'required_in_plugins': ('The following templates are used by plugins'
-            ' in the pages of this site and need to be assigned to this '
-            'site: {0}'),
+            'site assigned. Check the following pages to fix plugins({1}): {2}'),
+        'required_in_plugins': ('Template {0} is used by plugins({1})'
+            ' in the following pages of this site and need to be assigned '
+            'to this site: {2}'),
         'orphan': ('Following templates will remain with no sites assigned: {0}'),
     }
 
@@ -339,19 +360,39 @@ class ExtendedSiteAdminForm(SiteAdminForm):
 
             nonexistent = templates_required - all_existing_templates
             if nonexistent:
+                _pages = self.instance.page_set.filter(
+                    template__in=nonexistent)
                 raise ValidationError(self._error_msg(
-                    'nonexistent_in_pages', ', '.join(nonexistent)))
+                    'nonexistent_in_pages',
+                    ', '.join(nonexistent), _format_pages(_pages)))
             nonexistent = plugins_templ - all_existing_templates
             if nonexistent:
+                first_nonexistent = iter(nonexistent).next()
+                _page_ids = get_pages_for_plugins_templates(
+                    self.instance, first_nonexistent,
+                    templ_with_plugins[first_nonexistent])
+                _pages = Page.objects.filter(id__in=_page_ids)
                 raise ValidationError(self._error_msg(
-                    'nonexistent_in_plugins', ', '.join(nonexistent)))
+                    'nonexistent_in_plugins', first_nonexistent,
+                    ', '.join(templ_with_plugins[first_nonexistent]),
+                    _format_pages(_pages)))
 
             if templates_required:
+                _pages = self.instance.page_set.filter(
+                    template__in=templates_required)
                 raise ValidationError(self._error_msg(
-                    'required_in_pages', ', '.join(templates_required)))
+                    'required_in_pages', ', '.join(templates_required),
+                    _format_pages(_pages)))
             if plugins_templ:
+                first_required = iter(plugins_templ).next()
+                _page_ids = get_pages_for_plugins_templates(
+                    self.instance, first_required,
+                    templ_with_plugins[first_required])
+                _pages = Page.objects.filter(id__in=_page_ids)
                 raise ValidationError(self._error_msg(
-                    'required_in_plugins', ', '.join(plugins_templ)))
+                    'required_in_plugins', first_required,
+                    ', '.join(templ_with_plugins[first_required]),
+                    _format_pages(_pages)))
 
         pks = [s.pk for s in assigned_templates]
         unassigned = self.instance.template_set.exclude(pk__in=pks)\
@@ -418,6 +459,30 @@ for plugin_name in settings.PLUGIN_TEMPLATE_REFERENCES:
                 plugin_name, ','.join(_VALID_TEMPLATE_FIELDS)))
 
 
+def _get_template_name_attr(model, field_name):
+    field_type = model._meta.get_field_by_name(field_name)[0].__class__
+    is_str = field_type is fields.CharField
+    return field_name if is_str else '%s__name' % field_name
+
+
+def _get_plugin_metadata(plugin_name):
+    plugin_class = plugin_pool.get_plugin(plugin_name)
+    plugin_model = plugin_class.model
+    field_name = plugin_class.get_template_field_name()
+    template_name_attr = _get_template_name_attr(
+        plugin_model, field_name)
+    return plugin_model, field_name, template_name_attr
+
+
+def _get_templates_from_plugin(site, plugin_name):
+    plugin_model, field_name, template_name_attr = _get_plugin_metadata(plugin_name)
+
+    return plugin_model.objects.filter(**{
+        'placeholder__page__site': site,
+        '%s__isnull' % field_name: False
+    }).values_list(template_name_attr, flat=True)
+
+
 def get_plugin_templates_from_site(site):
     templates = defaultdict(set)
     for plugin in settings.PLUGIN_TEMPLATE_REFERENCES:
@@ -426,22 +491,17 @@ def get_plugin_templates_from_site(site):
     return templates
 
 
-def _get_template_name_attr(model, field_name):
-    field_type = model._meta.get_field_by_name(field_name)[0].__class__
-    is_str = field_type is fields.CharField
-    return field_name if is_str else '%s__name' % field_name
+def get_pages_for_plugins_templates(site, template_name, plugins):
+    pages = []
+    for plugin in plugins:
+        plugin_model, field_name, template_name_attr = _get_plugin_metadata(plugin)
 
-
-def _get_templates_from_plugin(site, plugin_name):
-    plugin_class = plugin_pool.get_plugin(plugin_name)
-    field_name = plugin_class.get_template_field_name()
-    template_name_attr = _get_template_name_attr(
-        plugin_class.model, field_name)
-
-    return plugin_class.model.objects.filter(**{
-        'placeholder__page__site': site,
-        '%s__isnull' % field_name: False
-    }).values_list(template_name_attr, flat=True)
+        pages += plugin_model.objects.filter(**{
+            'placeholder__page__site': site,
+            '%s__isnull' % field_name: False,
+            template_name_attr: template_name
+        }).values_list('placeholder__page', flat=True)
+    return pages
 
 
 class ExtendedSiteAdmin(RegisteredSiteAdmin):
