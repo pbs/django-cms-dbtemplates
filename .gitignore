@@ -5,3 +5,4 @@ dist
 *.egg
 build
 nosetest.xml
+.tox

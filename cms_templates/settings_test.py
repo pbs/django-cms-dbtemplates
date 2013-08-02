@@ -15,16 +15,14 @@ INSTALLED_APPS = [
     'sekizai',
     'dbtemplates',
     'cms_templates',
-    'django_nose',
 ]
 
-TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 CMS_TEMPLATES = []
 CMS_MODERATOR = True
 CMS_PERMISSION = True
 STATIC_ROOT = '/static/'
 STATIC_URL = '/static/'
-ROOT_URLCONF = 'urls_test'
+ROOT_URLCONF = 'cms_templates.urls_test'
 TEMPLATE_CONTEXT_PROCESSORS = [
     "django.contrib.auth.context_processors.auth",
     'django.contrib.messages.context_processors.messages',
