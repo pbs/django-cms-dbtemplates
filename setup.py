@@ -8,23 +8,23 @@ README_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)),
 dependencies = [
     'djangotoolbox',
     'django>=1.4.1, <1.5',
-    'django-cms>=2.3.1pbs, <2.3.6',
+    'django-cms>=2.3.5pbs, <2.3.6',
     'django-dbtemplates>=1.4.1pbs, <1.5',
-    'python-graph-core==1.8.2',
-    'django-admin-extend==0.0.1',
+    'python-graph-core',
+    'django-admin-extend',
 ]
 
 
 dependency_links = [
     'http://github.com/pbs/django-dbtemplates/tarball/develop#egg=django-dbtemplates-1.4.1pbs',
     'http://github.com/pbs/django-cms/tarball/support/2.3.x#egg=django-cms-2.3.5pbs',
-
+    'http://github.com/pbs/django-admin-extend/tarball/master#egg=django-admin-extend',
 ]
 
 
 setup(
     name='django-cms-dbtemplates',
-    version='0.9',
+    version='0.10',
     description='Integrate django-cms and django-dbtemplates',
     long_description=open(README_PATH, 'r').read(),
     author='Sever Banesiu',
