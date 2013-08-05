@@ -65,5 +65,4 @@ TEMPLATE_LOADERS = (
     'django.template.loaders.eggs.Loader',
     'cms_templates.loader.CmsTemplatesLoader',
     )
-CACHE_BACKEND='locmem:///'
-
+CACHE_BACKEND = 'locmem:///'

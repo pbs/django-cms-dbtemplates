@@ -11,13 +11,14 @@ dependencies = [
     'django-cms>=2.3.5pbs, <2.3.6',
     'django-dbtemplates>=1.4.1pbs, <1.5',
     'python-graph-core',
+    'django-admin-extend',
 ]
 
 
 dependency_links = [
     'http://github.com/pbs/django-dbtemplates/tarball/develop#egg=django-dbtemplates-1.4.1pbs',
     'http://github.com/pbs/django-cms/tarball/support/2.3.x#egg=django-cms-2.3.5pbs',
-
+    'http://github.com/pbs/django-admin-extend/tarball/master#egg=django-admin-extend',
 ]
 
 
