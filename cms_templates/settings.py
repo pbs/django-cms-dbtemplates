@@ -8,4 +8,4 @@ restrict_user = getattr(settings, 'DBTEMPLATES_RESTRICT_USER', False)
    For an example on how to configure PLUGIN_TEMPLATE_REFERENCES see
    settings_test.py and cms_templates/tests_models.py
 """
-PLUGIN_TEMPLATE_REFERENCES = []
+PLUGIN_TEMPLATE_REFERENCES = getattr(settings, 'PLUGIN_TEMPLATE_REFERENCES', [])

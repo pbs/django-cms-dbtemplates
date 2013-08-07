@@ -7,14 +7,15 @@ from django.forms import ModelMultipleChoiceField
 from django.template import (Template as _Template, TemplateSyntaxError)
 from django.template.base import TemplateDoesNotExist
 from django.db.models import Q, Count, fields
-from template_analyzer import get_all_templates_used
 from cms.models import Page
+from cms.plugin_pool import plugin_pool
 from dbtemplates.models import Template
-from recursive_validator import handle_recursive_calls, \
+from cms_templates import settings as cms_templates_settings
+from cms_templates.template_analyzer import get_all_templates_used
+from cms_templates.recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError, format_recursive_msg
 from admin_extend.extend import registered_form, registered_modeladmin, \
     extend_registered, add_bidirectional_m2m
-from cms.plugin_pool import plugin_pool
 from functools import wraps
 from collections import defaultdict
 
@@ -41,45 +42,44 @@ def _format_pages(page_qs):
 class ExtendedTemplateAdminForm(registered_form(Template)):
 
     custom_error_messages = {
-        'page_use': ('Site {0} has the following pages that are currently using '
-            'this template: {1}. Delete these pages or use different template for '
-            'them before unassigning the site.'),
-        'page_template_use': ('Site {0} has pages with template {1} assigned.'
-            ' Template {1} requires this template. Delete the following '
-            'pages or use different template for them before unassigning the'
-            ' site: {2}.'),
-        'plugin_template_use': ('Cannot unassign site {0} from this '
-            'template. Following pages have plugins({1}) that are currently '
-            'using this template: {2}'),
-        'site_template_use': ('Cannot unassign site {0} from '
-            'template {1}. Template {1} is used by template {2} which has '
-            'site {0} assigned. Both templates need to be unassigned from '
-            'this site. Do this change from the site admin view.'),
-        'nonexistent_in_pages': ('Template {0} is used by the following '
-            'pages of the site {1} and does not exist: {2}. Create this '
-            'nonexistent template, delete the pages that uses it or just '
-            'change the template from pages with a template that is '
-            'available for use.'),
-        'syntax_error_unassigning': ('Syntax error in template {0} or in the '
+        'page_use': 'This template is in use on site {0} by the following '
+            'page(s): {1}. You must delete the page or pages or assign a '
+            'different template before unassigning this template from '
+            'site {0}.',
+        'page_template_use': 'This template is used by template {1} on site '
+            '{0}. You must delete these pages or assign a different template '
+            'before unassigning this template from site {0}: {2}.',
+        'plugin_template_use': 'This template may not be unassigned from '
+            'site {0} because the following pages have plugins({1}) '
+            'that are currently using this template: {2}',
+        'site_template_use': 'Template {1} is used by template {2} in site '
+            '{0}. You may not unassign template {1} from site {0} without '
+            'also unassigning template {2}. This change can only be '
+            'performed in the site admin section.',
+        'nonexistent_in_pages': 'Template {0} is used by the following pages'
+            ' of the site {1} and does not exist: {2}. Create template with'
+            ' the same name, delete the pages that use it, or change the '
+            'pages to use an available template.',
+        'syntax_error_unassigning': 'Syntax error in template {0} or in the '
             'templates that depend on it: {1}. Fix this syntax error before '
-            'unassigning site: {2}.'),
-        'syntax_error': ('Syntax error in template {0} or in the '
-            'templates that depend on it: {1}.'),
-        'orphan_in_page': ('Template {0} is used by the site {1}. '
+            'unassigning site: {2}.',
+        'syntax_error': 'Template {0} -- or a dependent template: {1} -- '
+            'contains a syntax error.',
+        'orphan_in_page': 'Template {0} is used in site {1}. '
             'Template {0} or some of the templates that depend on it do not '
             'have site {1} assigned. Assign the site or change the template '
             'from the pages that uses it. Fix this error before unassigning '
-            'site: {1}.'),
-        'orphan_unassigned_to_site': ('Template {0} is used by the site {1}. '
+            'site: {1}.',
+        'orphan_unassigned_to_site': 'Template {0} is used in site {1}. '
             'Template {0} or some of the templates that are used by it do not '
-            'have site {1} assigned. Assign the site to fix this error.'),
-        'missing_template_use': ('Template {0} depends on template {1}. '
-            'Template {1} does not exist. Create it or remove its reference '
-            'from the template code.'),
-        'not_found': ('Template: {0} not found.'),
-        'missing_sites': ('The following sites have to be assigned to '
-            'template {0}: {1}'),
-        'infinite_recursivity': ('Infinite template recursivity: {0}'),
+            'have site {1} assigned. Assign the site to fix this error.',
+        'missing_template_use': 'Template {0} depends on template {1}. '
+            'Template {1} does not exist. Create a template named {1} or '
+            'remove any reference to template {1} in template {0} code.',
+        'not_found': 'Template: {0} not found.',
+        'missing_sites': 'The following sites have to be assigned to '
+            'template {0}: {1}',
+        'infinite_recursivity': 'Infinite template recursivity: {0}',
     }
 
     def __init__(self, *args, **kwargs):
@@ -274,29 +274,30 @@ class ExtendedSiteAdminForm(add_bidirectional_m2m(registered_form(Site))):
             _get_bidirectional_m2m_fields() + [('templates', 'template_set')]
 
     custom_error_messages = {
-        'syntax_error': ('Template {0} or some of the templates it uses have '
+        'syntax_error': 'Template {0} or some of the templates it uses have '
             'syntax errors: {1}. Fix this error before assigning/unassigning '
-            'this template.'),
-        'required_not_assigned': ('Template {0} is required by template {1} '
-            'and it is not assigned to this site.'),
-        'required_not_exist': ('Template {0} uses template {1} that does not '
-            'exist. Create it or remove its reference from the template code. '
-            'Fix this error before assigning/unassigning this template.'),
-        'all_required': ('Template(s) {0} are required by template {1}. Assign '
-            'or unassign them all.'),
-        'nonexistent_in_pages': ('There are pages that use the following '
+            'this template.',
+        'required_not_assigned': 'Template {0} is required by template {1}. '
+            'You must assign both templates ({0} and {1}) to this site.',
+        'required_not_exist': 'Template {0} depends on template {1}. '
+            'Template {1} does not exist. Create a template named {1} or'
+            ' remove any reference to template {1} in template {0} code',
+        'all_required': 'Template(s) {0} are required by template {1}. Assign '
+            'or unassign them all.',
+        'nonexistent_in_pages': 'There are pages that use the following '
             'nonexistent templates: {0}. Change/delete the following pages '
-            'that uses them or just create them with this site assigned: {1}.'),
-        'required_in_pages': ('Templates {0} are used by the following pages '
-            'of this site and need to be assigned to this site: {1}'),
-        'nonexistent_in_plugins': ('There are pages with plugins that use '
+            'that use them or just create them with this site assigned: {1}.',
+        'required_in_pages': 'Templates {0} are used by the following pages '
+            'of this site and need to be assigned to this site: {1}',
+        'nonexistent_in_plugins': 'There are pages with plugins that use '
             'the following nonexistent templates: {0}. Change/delete the '
-            'plugins that uses them, or just create them with this '
-            'site assigned. Check the following pages to fix plugins({1}): {2}'),
-        'required_in_plugins': ('Template {0} is used by plugins({1})'
+            'plugins that use them, or just create them with this '
+            'site assigned. Check the following pages to fix plugins'
+            '({1}): {2}',
+        'required_in_plugins': 'Template {0} is used by plugins({1})'
             ' in the following pages of this site and need to be assigned '
-            'to this site: {2}'),
-        'orphan': ('Following templates will remain with no sites assigned: {0}'),
+            'to this site: {2}',
+        'orphan': 'Following templates will remain with no sites assigned: {0}',
     }
 
     def _error_msg(self, msg_key, *args):
@@ -399,7 +400,7 @@ class ExtendedSiteAdminForm(add_bidirectional_m2m(registered_form(Site))):
 
 # validate PLUGIN_TEMPLATE_REFERENCES configuration
 _VALID_TEMPLATE_FIELDS = [fields.related.ForeignKey, fields.CharField]
-for plugin_name in settings.PLUGIN_TEMPLATE_REFERENCES:
+for plugin_name in cms_templates_settings.PLUGIN_TEMPLATE_REFERENCES:
     # make sure all plugins are dicovered
     plugin_pool.get_all_plugins()
 
@@ -457,7 +458,7 @@ def _get_templates_from_plugin(site, plugin_name):
 
 def get_plugin_templates_from_site(site):
     templates = defaultdict(set)
-    for plugin in settings.PLUGIN_TEMPLATE_REFERENCES:
+    for plugin in cms_templates_settings.PLUGIN_TEMPLATE_REFERENCES:
         for template in _get_templates_from_plugin(site, plugin):
             templates[template].add(plugin)
     return templates
