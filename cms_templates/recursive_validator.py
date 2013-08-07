@@ -1,17 +1,18 @@
 from django.template.debug import DebugLexer, DebugParser
 from django.utils.encoding import smart_unicode
-from django.template import TemplateEncodingError, \
-    TemplateSyntaxError, StringOrigin
-from django.template.loader import find_template
+from django.template import StringOrigin
+
 from pygraph.classes.digraph import digraph
 from pygraph.algorithms.cycles import find_cycle
 from pygraph.classes.exceptions import AdditionError
+
 from dbtemplates.models import Template
 
 
 class InfiniteRecursivityError(Exception):
 
     def __init__(self, cycle_items, graph):
+        super(InfiniteRecursivityError, self).__init__()
         self.cycle_items = cycle_items
         self.graph = graph
 

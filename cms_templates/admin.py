@@ -1,9 +1,8 @@
-from django.contrib import admin
-from django.contrib.admin.sites import NotRegistered
 from django.contrib.sites.models import Site
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError, ImproperlyConfigured
 from django.conf import settings
+from django.db.models import Q, Count
 from django.forms import ModelMultipleChoiceField
 from django.template import (Template as _Template, TemplateSyntaxError)
 from django.template.base import TemplateDoesNotExist
@@ -13,6 +12,8 @@ from cms.models import Page
 from dbtemplates.models import Template
 from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError, format_recursive_msg
+from admin_extend.extend import registered_form, registered_modeladmin, \
+    extend_registered, add_bidirectional_m2m
 from cms.plugin_pool import plugin_pool
 from functools import wraps
 from collections import defaultdict
@@ -32,23 +33,12 @@ def with_template_debug_on(clean_func):
     return wrapper
 
 
-def _get_registered_modeladmin(model):
-    """ This is a huge hack to get the registered modeladmin for the model.
-        We need this functionality in case someone else already registered
-        a different modeladmin for this model. """
-    return type(admin.site._registry[model])
-
-
 def _format_pages(page_qs):
     return ', '.join(['%s(%d)' % (page.get_title() or '', page.id)
                       for page in page_qs])
 
 
-RegisteredTemplateAdmin = _get_registered_modeladmin(Template)
-TemplateAdminForm = RegisteredTemplateAdmin.form
-
-
-class ExtendedTemplateAdminForm(TemplateAdminForm):
+class ExtendedTemplateAdminForm(registered_form(Template)):
 
     custom_error_messages = {
         'page_use': ('Site {0} has the following pages that are currently using '
@@ -251,13 +241,15 @@ class ExtendedTemplateAdminForm(TemplateAdminForm):
         return cleaned_data
 
 
-class RestrictedTemplateAdmin(RegisteredTemplateAdmin):
+@extend_registered
+class RestrictedTemplateAdmin(registered_modeladmin(Template)):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
     form = ExtendedTemplateAdminForm
 
 
-class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
+@extend_registered
+class DynamicTemplatesPageAdmin(registered_modeladmin(Page)):
     def get_form(self, request, obj=None, **kwargs):
         f = super(DynamicTemplatesPageAdmin, self).get_form(
             request, obj, **kwargs)
@@ -266,11 +258,8 @@ class DynamicTemplatesPageAdmin(_get_registered_modeladmin(Page)):
         return f
 
 
-RegisteredSiteAdmin = _get_registered_modeladmin(Site)
-SiteAdminForm = RegisteredSiteAdmin.form
-
-
-class ExtendedSiteAdminForm(SiteAdminForm):
+@extend_registered
+class ExtendedSiteAdminForm(add_bidirectional_m2m(registered_form(Site))):
     templates = ModelMultipleChoiceField(
         queryset=Template.objects.all(),
         required=False,
@@ -279,6 +268,10 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             is_stacked=False
         )
     )
+
+    def _get_bidirectional_m2m_fields(self):
+        return super(ExtendedSiteAdminForm, self).\
+            _get_bidirectional_m2m_fields() + [('templates', 'template_set')]
 
     custom_error_messages = {
         'syntax_error': ('Template {0} or some of the templates it uses have '
@@ -305,11 +298,6 @@ class ExtendedSiteAdminForm(SiteAdminForm):
             'to this site: {2}'),
         'orphan': ('Following templates will remain with no sites assigned: {0}'),
     }
-
-    def __init__(self, *args, **kwargs):
-        super(ExtendedSiteAdminForm, self).__init__(*args, **kwargs)
-        if self.instance.pk is not None:
-            self.fields['templates'].initial = self.instance.template_set.all()
 
     def _error_msg(self, msg_key, *args):
         return self.custom_error_messages[msg_key].format(*args)
@@ -408,22 +396,6 @@ class ExtendedSiteAdminForm(SiteAdminForm):
 
         return assigned_templates
 
-    def save(self, commit=True):
-        instance = super(ExtendedSiteAdminForm, self).save(commit=False)
-        # If the object is new, we need to force save it, whether commit
-        # is True or False, otherwise setting the template_set would fail
-        # This would cause the object to be saved twice if used in an
-        # InlineFormSet
-        force_save = self.instance.pk is None
-        if force_save:
-            instance.save()
-        instance.template_set = self.cleaned_data['templates']
-        if commit:
-            if not force_save:
-                instance.save()
-            self.save_m2m()
-        return instance
-
 
 # validate PLUGIN_TEMPLATE_REFERENCES configuration
 _VALID_TEMPLATE_FIELDS = [fields.related.ForeignKey, fields.CharField]
@@ -495,33 +467,9 @@ def get_pages_for_plugins_templates(site, template_name, plugins):
     pages = []
     for plugin in plugins:
         plugin_model, field_name, template_name_attr = _get_plugin_metadata(plugin)
-
         pages += plugin_model.objects.filter(**{
             'placeholder__page__site': site,
             '%s__isnull' % field_name: False,
             template_name_attr: template_name
         }).values_list('placeholder__page', flat=True)
     return pages
-
-
-class ExtendedSiteAdmin(RegisteredSiteAdmin):
-    form = ExtendedSiteAdminForm
-
-
-try:
-    admin.site.unregister(Template)
-except NotRegistered:
-    pass
-admin.site.register(Template, RestrictedTemplateAdmin)
-
-try:
-    admin.site.unregister(Page)
-except NotRegistered:
-    pass
-admin.site.register(Page, DynamicTemplatesPageAdmin)
-
-try:
-    admin.site.unregister(Site)
-except NotRegistered:
-    pass
-admin.site.register(Site, ExtendedSiteAdmin)
