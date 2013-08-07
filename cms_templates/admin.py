@@ -125,9 +125,9 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
                 raise ValidationError(self._error_msg(
                     'missing_template_use', template_name, e))
 
-    def _build_template_site_dict(self, list_of_tuples):
+    def _build_site_to_templates(self, template_site_pairs):
         new_dict = defaultdict(list)
-        for pair in list_of_tuples:
+        for pair in template_site_pairs:
             template, site = pair[0], pair[1]
             new_dict[site].append(template)
         return new_dict
@@ -136,7 +136,7 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
     def _validate_unassigned_sites(self, cleaned_data):
         assigned = cleaned_data['sites'].values_list('id', flat=True)
 
-        unassigned_page_templates = self._build_template_site_dict(
+        unassigned_page_templates = self._build_site_to_templates(
             self.instance.sites.exclude(
                 Q(id__in=assigned) | Q(page__template='INHERIT'))
             .values_list('page__template', 'domain').distinct())
