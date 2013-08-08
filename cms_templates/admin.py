@@ -105,11 +105,11 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
                 template.content).nodelist))
         except Template.DoesNotExist:
             if pages_search:
-                _pages = Page.objects.filter(
+                pages_to_print = Page.objects.filter(
                     site__domain=site_domain, template=template_name)
                 raise ValidationError(self._error_msg(
                     'nonexistent_in_pages', template_name, site_domain,
-                    _format_pages(_pages)))
+                    _format_pages(pages_to_print)))
         except TemplateSyntaxError, e:
             raise ValidationError(self._error_msg(
                 'syntax_error_unassigning', template_name, e, site_domain))
@@ -154,10 +154,10 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
         for domain, templates in unassigned_page_templates.iteritems():
             # check if it used by pages
             if current_templ in templates:
-                _pages = Page.objects.filter(
+                pages_to_print = Page.objects.filter(
                     site__domain=domain, template=current_templ)
                 raise ValidationError(self._error_msg(
-                    'page_use', domain, _format_pages(_pages)))
+                    'page_use', domain, _format_pages(pages_to_print)))
 
             # check if it is used by templates of pages
             for template_name in templates:
@@ -165,11 +165,11 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
                     self._get_used_templates(template_name, domain, True))
 
                 if current_templ in _templs_of_template:
-                    _pages = Page.objects.filter(
+                    pages_to_print = Page.objects.filter(
                         site__domain=domain, template=template_name)
                     raise ValidationError(self._error_msg(
                         'page_template_use', domain, template_name,
-                        _format_pages(_pages)))
+                        _format_pages(pages_to_print)))
 
         for domain, other_templates in unassigned_site_templates.iteritems():
             # check if it is used by templates of the unassigned site
@@ -184,13 +184,13 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
         for site in sites_about_to_be_unassigned:
             templ_with_plugins = get_plugin_templates_from_site(site)
             if current_templ in templ_with_plugins:
-                _page_ids = get_pages_for_plugins_templates(
+                pages_ids = get_pages_for_plugins_templates(
                     site, current_templ, templ_with_plugins[current_templ])
-                _pages = Page.objects.filter(id__in=_page_ids)
+                pages_to_print = Page.objects.filter(id__in=pages_ids)
                 raise ValidationError(self._error_msg(
                     'plugin_template_use', site.domain,
                     ', '.join(templ_with_plugins[current_templ]),
-                    _format_pages(_pages)))
+                    _format_pages(pages_to_print)))
 
     @with_template_debug_on
     def clean(self):
@@ -336,52 +336,52 @@ class ExtendedSiteAdminForm(add_bidirectional_m2m(registered_form(Site))):
         if self.instance.pk is None:
             return assigned_templates
 
-        templates_required = set(self.instance.page_set
+        required_templates = set(self.instance.page_set
             .exclude(template__in=list(assigned_names) + ['INHERIT'])
             .values_list('template', flat=True).distinct())
 
-        templ_with_plugins = get_plugin_templates_from_site(self.instance)
-        plugins_templ = set(templ_with_plugins.keys()) - assigned_names
+        templates_to_plugins = get_plugin_templates_from_site(self.instance)
+        plg_tmpl_not_assigned = set(templates_to_plugins.keys()) - assigned_names
 
-        if templates_required or plugins_templ:
+        if required_templates or plg_tmpl_not_assigned:
             all_existing_templates = set(Template.objects.all()
                 .values_list('name', flat=True))
 
-            nonexistent = templates_required - all_existing_templates
+            nonexistent = required_templates - all_existing_templates
             if nonexistent:
-                _pages = self.instance.page_set.filter(
+                pages_to_print = self.instance.page_set.filter(
                     template__in=nonexistent)
                 raise ValidationError(self._error_msg(
                     'nonexistent_in_pages',
-                    ', '.join(nonexistent), _format_pages(_pages)))
-            nonexistent = plugins_templ - all_existing_templates
+                    ', '.join(nonexistent), _format_pages(pages_to_print)))
+            nonexistent = plg_tmpl_not_assigned - all_existing_templates
             if nonexistent:
                 first_nonexistent = iter(nonexistent).next()
-                _page_ids = get_pages_for_plugins_templates(
+                page_ids = get_pages_for_plugins_templates(
                     self.instance, first_nonexistent,
-                    templ_with_plugins[first_nonexistent])
-                _pages = Page.objects.filter(id__in=_page_ids)
+                    templates_to_plugins[first_nonexistent])
+                pages_to_print = Page.objects.filter(id__in=page_ids)
                 raise ValidationError(self._error_msg(
                     'nonexistent_in_plugins', first_nonexistent,
-                    ', '.join(templ_with_plugins[first_nonexistent]),
-                    _format_pages(_pages)))
+                    ', '.join(templates_to_plugins[first_nonexistent]),
+                    _format_pages(pages_to_print)))
 
-            if templates_required:
-                _pages = self.instance.page_set.filter(
-                    template__in=templates_required)
+            if required_templates:
+                pages_to_print = self.instance.page_set.filter(
+                    template__in=required_templates)
                 raise ValidationError(self._error_msg(
-                    'required_in_pages', ', '.join(templates_required),
-                    _format_pages(_pages)))
-            if plugins_templ:
-                first_required = iter(plugins_templ).next()
-                _page_ids = get_pages_for_plugins_templates(
+                    'required_in_pages', ', '.join(required_templates),
+                    _format_pages(pages_to_print)))
+            if plg_tmpl_not_assigned:
+                first_required = iter(plg_tmpl_not_assigned).next()
+                page_ids = get_pages_for_plugins_templates(
                     self.instance, first_required,
-                    templ_with_plugins[first_required])
-                _pages = Page.objects.filter(id__in=_page_ids)
+                    templates_to_plugins[first_required])
+                pages_to_print = Page.objects.filter(id__in=page_ids)
                 raise ValidationError(self._error_msg(
                     'required_in_plugins', first_required,
-                    ', '.join(templ_with_plugins[first_required]),
-                    _format_pages(_pages)))
+                    ', '.join(templates_to_plugins[first_required]),
+                    _format_pages(pages_to_print)))
 
         pks = [s.pk for s in assigned_templates]
         unassigned = self.instance.template_set.exclude(pk__in=pks)\
