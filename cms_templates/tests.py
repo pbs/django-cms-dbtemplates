@@ -8,16 +8,18 @@ from django.template import loader, Context, TemplateDoesNotExist
 from django.core import urlresolvers
 from django.conf import settings
 from cms.models.permissionmodels import GlobalPagePermission
-from cms.models import Page, Title
+from cms.models import Page, Title, Placeholder
 from urlparse import urljoin
 from cms.test_utils.testcases import (CMSTestCase,
                                       URL_CMS_PAGE,
                                       URL_CMS_PAGE_ADD,)
-
+from datetime import datetime
 from mock import patch
+from parse import parse
 import re
 from recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError
+from tests_model import *
 
 
 def _fix_lang_url(url):
@@ -249,10 +251,7 @@ class TestTemplateValidationBaseMixin(object):
             error, form.custom_error_messages[error_msg_key])
 
     def _matches_error_message(self, msg, error_pattern):
-        str_pieces = set(re.split('({\d+})', error_pattern)) -\
-            set(re.findall('({\d+})', error_pattern))
-        for str_piece in str_pieces:
-            self.assertTrue(str_piece in msg)
+        self.assertNotEqual(parse(error_pattern, msg), None)
 
 
 class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
@@ -280,6 +279,13 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
         self._matches_error_message(
             error, form.custom_error_messages[error_msg_key])
 
+    def _no_validation_error_on_site_form(
+            self, name, domain, templates, _id=None):
+        url = self._site_url(_id) if _id else self._site_url()
+        response = self.client.post(url,
+            {'name': name, 'domain': domain, 'templates': templates})
+        self.assertEquals(response.status_code, 302)
+
     def _trigger_validation_error_on_template_form(
             self, name, content, sites, err_key, _id=None):
         url = self._templ_url(_id) if _id else self._templ_url()
@@ -289,7 +295,6 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
         self.assertFormValidationMessage(err_key, response)
 
     def _update_template(self, name, content, sites, _id=None):
-        from datetime import datetime
         _date = datetime.now()
         url = self._templ_url(_id) if _id else self._templ_url()
         response = self.client.post(url,
@@ -632,7 +637,6 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
             s.name, s.domain, [templ_menu.id, templ_sub_menu.id],
             'all_required', s.id)
 
-
     def test_empty_menu_tags_template(self):
         templ_menu = Template.objects.create(name='menu')
         templ_menu.content = """
@@ -658,6 +662,79 @@ class TestTemplateValidation(TestCase, TestTemplateValidationBaseMixin):
         response = self.client.post(url,
             {'name': s.name, 'domain': s.domain, 'templates': [templ_menu.id]})
         self.assertEquals(response.status_code, 302)
+
+    def test_plugin_templates(self):
+        pluginA_template = Template.objects.create(
+            name='pluginA_template', content='a')
+        pluginB_template = Template.objects.create(
+            name='pluginB_template', content='a')
+        page_template = Template.objects.create(
+            name='page_template', content='a')
+        pluginC_template = Template.objects.create(
+            name='pluginC_template', content='a')
+        site = Site.objects.create(name='s1', domain='example1.com')
+        site2 = Site.objects.create(name='s2', domain='example2.com')
+        site.template_set.add(
+            pluginA_template, pluginB_template,
+            page_template, pluginC_template)
+        site2.template_set.add(
+            pluginA_template, pluginB_template,
+            page_template, pluginC_template)
+        p = Page.objects.create(template=page_template.name, site=site)
+        phd = Placeholder.objects.create(slot='main')
+        p.placeholders.add(phd)
+        plgA = PluginModelA.objects.create(
+            plugin_type='PluginA',
+            some_template=pluginA_template,
+            placeholder=phd)
+        plgB = PluginModelB.objects.create(
+            plugin_type='PluginB',
+            some_template_name=pluginB_template.name,
+            placeholder=phd)
+        plgC = PluginModelC.objects.create(
+            plugin_type='PluginC',
+            templ_name=pluginC_template.name,
+            placeholder=phd)
+
+        # since plgD is not registered in PLUGIN_TEMPLATE_REFERENCES it
+        #   shouldn't throw validation error
+        self._no_validation_error_on_site_form(
+            site.name, site.domain,
+            [pluginA_template.id, pluginB_template.id, page_template.id],
+            site.id)
+
+        self._trigger_validation_error_on_site_form(
+            site.name, site.domain, [pluginB_template.id, page_template.id],
+            'required_in_plugins', site.id)
+
+        self._trigger_validation_error_on_template_form(
+            pluginA_template.name, 'content', [1],
+            'plugin_template_use', _id=pluginA_template.id)
+
+        self._trigger_validation_error_on_site_form(
+            site.name, site.domain, [pluginA_template.id, page_template.id],
+            'required_in_plugins', site.id)
+
+        self._trigger_validation_error_on_template_form(
+            pluginB_template.name, 'content', [1],
+            'plugin_template_use', _id=pluginB_template.id)
+
+        PluginModelB.objects.filter(id=plgB.id).update(
+            some_template_name='NonExistent')
+
+        self._trigger_validation_error_on_site_form(
+            site.name, site.domain, [pluginA_template.id, page_template.id],
+            'nonexistent_in_plugins', site.id)
+
+        PluginModelC.objects.filter(id=plgC.id).update(
+            templ_name='NonExistent')
+        PluginModelB.objects.filter(id=plgB.id).update(
+            some_template_name=pluginB_template.name)
+
+        self._no_validation_error_on_site_form(
+            site.name, site.domain,
+            [pluginA_template.id, pluginB_template.id, page_template.id],
+            site.id)
 
 
 class InfiniteRecursivityErrorTest(TestCase):
