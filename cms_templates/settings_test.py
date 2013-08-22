@@ -67,3 +67,4 @@ CACHE_BACKEND='locmem:///'
 # make sure template validation will work when TEMPLATE_DEBUG is False
 TEMPLATE_DEBUG = False
 PLUGIN_TEMPLATE_REFERENCES = ['PluginBaseA', 'PluginBaseB']
+JUXD_FILENAME = './report.xml'
