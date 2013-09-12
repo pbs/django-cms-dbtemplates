@@ -44,9 +44,6 @@ URL_CMS_PAGE_ADD = _fix_lang_url(URL_CMS_PAGE_ADD)
 
 class TestLoader(TestCase):
 
-    def test_fail(self):
-        self.assertEquals(1, 2)                              
-
     def test_shared_site_template(self):
         with patch('cms_templates.settings.shared_sites') as mock:
             mock.return_value = ['SHARED_SITE']
