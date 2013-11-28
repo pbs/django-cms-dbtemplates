@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.http import Http404
 from django.core.urlresolvers import resolve
@@ -11,6 +13,8 @@ from dbtemplates.models import Template
 from cms.models import Page
 from cms.utils.permissions import get_user_sites_queryset
 from settings import include_orphan
+
+logger = logging.getLogger(__name__)
 
 CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES = make_tls_property()
 CMS_TEMPLATE_INHERITANCE_TITLE = 'Inherit the template of the nearest ancestor'
@@ -28,7 +32,13 @@ class SiteIDPatchMiddleware(object):
         # Use cms_admin_site session variable to guess on what site
         # the user is trying to edit stuff.
         session_site_id = request.session.get('cms_admin_site', None)
-        match = resolve(request.path)
+        try:
+            match = resolve(request.path)
+        except Exception as e:
+            logger.warning("SiteIDPatchMiddleware is raising {0}\n\n. "
+                           "Using {1} and bubble up".format(e, self.fallback))
+            self.fallback.process_request(request)
+            raise e
         user = getattr(request, 'user', None)
 
         if (match.app_name == 'admin'
@@ -41,8 +51,11 @@ class SiteIDPatchMiddleware(object):
             try:
                 s_id = sites[0].pk
                 session_site_id = request.session['cms_admin_site'] = s_id
-            except IndexError:
+            except IndexError as e:
                 # This user doesn't have any sites under his control.
+                logger.warning("SiteIDPatchMiddleware is raising {0}\n\n. "
+                               "This means the user doesn't have "
+                               "assigned any sites".format(e,))
                 pass
 
         if match.app_name == 'admin' and session_site_id is not None:
@@ -52,6 +65,9 @@ class SiteIDPatchMiddleware(object):
             self.fallback.process_request(request)
 
         if not settings.__class__.SITE_ID.value:
+            # This user doesn't have any sites under his control.
+            logger.error("SiteIDPatchMiddleware ended and nothing worked! "
+                         "And now a Http404 will be raised.")
             raise Http404
 
     def process_response(self, request, response):
