@@ -17,9 +17,9 @@ from datetime import datetime
 from mock import patch
 from parse import parse
 import re
-from recursive_validator import handle_recursive_calls, \
+from cms_templates.recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError
-from tests_model import *
+from cms_templates.tests.models import *
 
 
 def _fix_lang_url(url):
