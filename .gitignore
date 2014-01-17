@@ -3,6 +3,6 @@
 dist
 *.egg-info
 *.egg
-build
-nosetest.xml
 .tox
+pytest-results.xml
+install.log

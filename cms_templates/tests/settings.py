@@ -22,7 +22,7 @@ CMS_MODERATOR = True
 CMS_PERMISSION = True
 STATIC_ROOT = '/static/'
 STATIC_URL = '/static/'
-ROOT_URLCONF = 'cms_templates.urls_test'
+ROOT_URLCONF = 'cms_templates.tests.urls'
 TEMPLATE_CONTEXT_PROCESSORS = [
     "django.contrib.auth.context_processors.auth",
     'django.contrib.messages.context_processors.messages',
@@ -67,4 +67,3 @@ CACHE_BACKEND='locmem:///'
 # make sure template validation will work when TEMPLATE_DEBUG is False
 TEMPLATE_DEBUG = False
 PLUGIN_TEMPLATE_REFERENCES = ['PluginBaseA', 'PluginBaseB']
-JUXD_FILENAME = './.junit-report.xml'

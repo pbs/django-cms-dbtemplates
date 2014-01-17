@@ -8,13 +8,22 @@ from cms.plugin_pool import plugin_pool
 class PluginModelA(CMSPlugin):
     some_template = models.ForeignKey(Template, blank=True, null=True)
 
+    class Meta:
+        app_label = 'cms_templates'
+
 
 class PluginModelB(CMSPlugin):
     some_template_name = models.CharField(max_length=100)
 
+    class Meta:
+        app_label = 'cms_templates'
+
 
 class PluginModelC(CMSPlugin):
     templ_name = models.CharField(max_length=100)
+
+    class Meta:
+        app_label = 'cms_templates'
 
 
 class PluginBaseA(CMSPluginBase):

@@ -7,6 +7,7 @@ from django.test.client import RequestFactory
 from django.template import loader, Context, TemplateDoesNotExist
 from django.core import urlresolvers
 from django.conf import settings
+from djangotoolbox.utils import make_tls_property
 from cms.models.permissionmodels import GlobalPagePermission
 from cms.models import Page, Title, Placeholder
 from urlparse import urljoin
@@ -17,9 +18,9 @@ from datetime import datetime
 from mock import patch
 from parse import parse
 import re
-from recursive_validator import handle_recursive_calls, \
+from cms_templates.recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError
-from tests_model import *
+from cms_templates.tests.models import *
 
 
 def _fix_lang_url(url):
@@ -50,6 +51,7 @@ class TestLoader(TestCase):
             shared_site = Site.objects.create(domain="shared_site.org",
                                               name="SHARED_SITE")
             site1 = Site.objects.create(domain="site1.org", name="site1")
+            settings.__class__.SITE_ID = make_tls_property()
             settings.__class__.SITE_ID.value = site1.id
             site2 = Site.objects.create(domain="site2.org", name="site2")
             t1_shared = Template.objects.create(name='shared.html',
@@ -80,6 +82,7 @@ class TestLoader(TestCase):
             shared_site = Site.objects.create(domain="shared_site.org",
                                               name="SHARED_SITE")
             site1 = Site.objects.create(domain="site1.org", name="site1")
+            settings.__class__.SITE_ID = make_tls_property()
             settings.__class__.SITE_ID.value = site1.id
             t1_shared = Template.objects.create(name='shared.html',
                                                 content='shared')
@@ -96,6 +99,7 @@ class TestLoader(TestCase):
     def test_orphan(self):
         #test that the orphan site can be loaded
         site1 = Site.objects.create(domain="site1.org", name="site1")
+        settings.__class__.SITE_ID = make_tls_property()
         settings.__class__.SITE_ID.value = site1.id
         t_orphan = Template.objects.create(name='orphan.html',
                                            content='orphan')
