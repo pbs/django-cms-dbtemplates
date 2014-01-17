@@ -5,3 +5,4 @@ dist
 *.egg
 .tox
 pytest-results.xml
+install.log
