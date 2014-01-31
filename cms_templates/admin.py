@@ -87,11 +87,22 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
         if getattr(self, 'instance', None) and self.instance.pk:
             if 'name' in self.fields:
                 self.fields['name'].widget.attrs['readonly'] = True
+            if 'sites' in self.fields:
+                required = self.fields['sites'].required
+                # disallow django to validate if empty since it is done
+                #   in the clean method
+                self.fields['sites'].required = False
+                self.fields['sites']._validate_empty_sites = required
 
     def _error_msg(self, msg_key, *args):
         return self.custom_error_messages[msg_key].format(*args)
 
     def _handle_sites_not_assigned(self, template, required_sites):
+        """
+            Checks whether a template B that is used by template A
+        has the sites from template A assigned.
+        """
+
         already_assigned = template.sites.values_list('domain', flat=True)
         need_assigning = set(required_sites) - set(already_assigned)
         if need_assigning:
@@ -99,6 +110,19 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
                 'missing_sites', template.name, ', '.join(need_assigning)))
 
     def _get_used_templates(self, template_name, site_domain, pages_search):
+        """
+        Returns a set of templates that template `A` uses.
+        Raises validation errors if the templates used are invalid.
+        This method is used in 2 cases:
+            1. when searching for templates of pages for a certain site A that
+                is selected to be unassigned
+            2. when searching for templates assigned to a certain site A, site
+                that is selected to be unassigned from template `A`
+            pages_search - determines which error message should be used
+                         - is true if this method is called when checking
+                            templates from pages of a site that is about to be
+                            unassigned
+        """
         try:
             template = Template.objects.get(name=template_name)
             return set(get_all_templates_used(_Template(
@@ -129,22 +153,42 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
         new_dict = defaultdict(list)
         for pair in template_site_pairs:
             template, site = pair[0], pair[1]
-            new_dict[site].append(template)
+            if template and not template == 'INHERIT':
+                new_dict[site].append(template)
         return new_dict
 
 
     def _validate_unassigned_sites(self, cleaned_data):
-        assigned = cleaned_data['sites'].values_list('id', flat=True)
+        """
+        Checks if site(s) unassigning can be done.
+        A site can be unassigned from template A only if all the conditions
+                below are fulfilled:
+            * site does not have any pages with template A assigned
+            * site does not have any pages with templates that use template A
+            * the rest of the templates that are assigned to that site do not
+        use template A
+            * site does not have plugins(that support template assigning) with
+        template A in any of its pages
+        """
+        assigned_in_form = cleaned_data['sites'].values_list('id', flat=True)
+        all_in_form = self.base_fields['sites'].queryset.values_list('id', flat=True)
+        unassigned_in_form = set(all_in_form) - set(assigned_in_form)
+
+        assigned_in_db = set(list(self.instance.sites.all()
+                                    .values_list('id', flat=True)))
+        # sites that were initially assigned and are now in
+        #       the unassigned section
+        sites_to_unassign_ids = unassigned_in_form & assigned_in_db
+        sites_to_unassign = Site.objects.filter(id__in=sites_to_unassign_ids)
 
         unassigned_page_templates = self._build_site_to_templates(
-            self.instance.sites.exclude(
-                Q(id__in=assigned) | Q(page__template='INHERIT'))
-            .values_list('page__template', 'domain').distinct())
+            sites_to_unassign.values_list(
+                'page__template', 'domain').distinct())
 
-        sites_about_to_be_unassigned = self.instance.sites.exclude(id__in=assigned)
         unassigned_site_templates = {
-            s.domain: s.template_set.all().values_list('name', flat=True)
-            for s in sites_about_to_be_unassigned}
+            s.domain: s.template_set.exclude(name=self.instance.name).\
+                            values_list('name', flat=True)
+            for s in sites_to_unassign}
 
         if not (unassigned_page_templates or unassigned_site_templates):
             return
@@ -181,7 +225,7 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
                     raise ValidationError(self._error_msg(
                         'site_template_use', domain, current_templ, template_name))
 
-        for site in sites_about_to_be_unassigned:
+        for site in sites_to_unassign:
             templ_with_plugins = get_plugin_templates_from_site(site)
             if current_templ in templ_with_plugins:
                 pages_ids = get_pages_for_plugins_templates(
@@ -194,17 +238,34 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
 
     @with_template_debug_on
     def clean(self):
+        """
+        Validates whether this template will work on site pages.
+        In order for a template `A` to work on a page from site `A` the
+                following conditions need to exist:
+            * template A needs to be assigned to site A
+            * content from template A needs to be a valid django template code
+            * other templates used in template A (with `include`/`extend`/etc.
+                template tags) need to be assigned to site `A`
+            * other templates used should not create infinite recursive calls(
+                template A extends template B, template B extends template A)
+        This method makes sure all this conditions comply.
+        """
+
         cleaned_data = super(ExtendedTemplateAdminForm, self).clean()
         if not set(['name', 'content', 'sites']) <= set(cleaned_data.keys()):
             return cleaned_data
 
-        required_sites = [site.domain for site in cleaned_data['sites']]
+        if not cleaned_data['sites']:
+            cleaned_data['sites'] = Site.objects.get_empty_query_set()
+        sites_assigned_in_widget = [site.domain
+                                    for site in cleaned_data['sites']]
 
         try:
             compiled_template = _Template(cleaned_data.get('content'))
 
-            #here the template syntax is valid
-            handle_recursive_calls(cleaned_data['name'], cleaned_data['content'])
+            #at this point template content does not have any syntax errors
+            handle_recursive_calls(cleaned_data['name'],
+                                   cleaned_data['content'])
 
             used_templates = get_all_templates_used(compiled_template.nodelist)
         except TemplateSyntaxError, e:
@@ -218,7 +279,7 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
             try:
                 existing_template = Template.objects.get(name=str(e))
                 self._handle_sites_not_assigned(
-                    existing_template, required_sites)
+                    existing_template, sites_assigned_in_widget)
                 raise ValidationError(self._error_msg('not_found', e))
             except Template.DoesNotExist:
                 raise ValidationError(self._error_msg(
@@ -233,10 +294,28 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
                      'missing_template_use', cleaned_data['name'], used_template))
             else:
                 self._handle_sites_not_assigned(
-                    _used_template, required_sites)
+                    _used_template, sites_assigned_in_widget)
 
         if self.instance.pk:
             self._validate_unassigned_sites(cleaned_data)
+            # if the sites widget doesn't show all sites make sure the sites
+            #   assigned and unchaged will remain assigned
+            all_in_form = self.base_fields['sites'].queryset
+            assigned_in_form_ids = list(
+                cleaned_data['sites'].values_list('id', flat=True))
+            unassigned_in_form_ids = list(
+                all_in_form.exclude(id__in=assigned_in_form_ids)
+                    .values_list('id', flat=True))
+            assigned_and_unchanged_ids = list(
+                self.instance.sites.exclude(id__in=unassigned_in_form_ids)
+                    .values_list('id', flat=True))
+            all_assigned = assigned_and_unchanged_ids + assigned_in_form_ids
+            cleaned_data['sites'] = Site.objects.filter(id__in=all_assigned)
+
+        if hasattr(self.fields['sites'], '_validate_empty_sites'):
+            sites = cleaned_data['sites']
+            if self.fields['sites']._validate_empty_sites and not sites:
+                raise ValidationError('Sites field is required.')
 
         return cleaned_data
 
