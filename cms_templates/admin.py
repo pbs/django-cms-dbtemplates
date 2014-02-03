@@ -83,6 +83,9 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
     }
 
     def __init__(self, *args, **kwargs):
+        if 'sites' in self.base_fields:
+            orphaned_allowed = cms_templates_settings.include_orphan
+            self.base_fields['sites'].required = not orphaned_allowed
         super(ExtendedTemplateAdminForm, self).__init__(*args, **kwargs)
         if getattr(self, 'instance', None) and self.instance.pk:
             if 'name' in self.fields:
@@ -257,6 +260,7 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
 
         if not cleaned_data['sites']:
             cleaned_data['sites'] = Site.objects.get_empty_query_set()
+
         sites_assigned_in_widget = [site.domain
                                     for site in cleaned_data['sites']]
 
@@ -465,6 +469,9 @@ class ExtendedSiteAdminForm(add_bidirectional_m2m(registered_form(Site))):
         pks = [s.pk for s in assigned_templates]
         unassigned = self.instance.template_set.exclude(pk__in=pks)\
             .values_list('id', flat=True)
+
+        if cms_templates_settings.include_orphan:
+            return assigned_templates
 
         orphan_templates = Template.objects.filter(id__in=unassigned)\
             .annotate(Count('sites')).filter(sites__count=1)\
