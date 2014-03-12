@@ -6,3 +6,4 @@ dist
 .tox
 pytest-results.xml
 install.log
+*.pyo
