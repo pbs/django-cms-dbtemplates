@@ -91,7 +91,12 @@ def get_restricted_instances(site_id=None):
 class DBTemplatesMiddleware(object):
     def process_request(self, request):
         site_id = request.session.get('cms_admin_site', settings.SITE_ID)
-        t = get_restricted_instances(site_id)
+        try:
+            t = get_restricted_instances(site_id)
+        except Site.DoesNotExist:
+            logger.error('Current site not found: %d. '
+                         'It was probably deleted' % site_id)
+            raise Http404
         CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in t]
         if not CMS_TEMPLATES.value:
             CMS_TEMPLATES.value = [('dummy',
