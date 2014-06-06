@@ -80,7 +80,11 @@ class SiteIDPatchMiddleware(object):
         return response
 
 
-def get_restricted_instances(site_id=None):
+def get_site_templates(site_id=None):
+    """Return the list of templates defined for a given site.
+
+       In case no site is specified, the current site is considered.
+    """
     if site_id:
         f = Q(sites=Site.objects.get(pk=site_id))
     else:
@@ -92,12 +96,12 @@ class DBTemplatesMiddleware(object):
     def process_request(self, request):
         site_id = request.session.get('cms_admin_site', settings.SITE_ID)
         try:
-            t = get_restricted_instances(site_id)
+            templates = get_site_templates(site_id)
         except Site.DoesNotExist:
             logger.error('Current site not found: %d. '
                          'It was probably deleted' % site_id)
             raise Http404
-        CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in t]
+        CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in templates]
         if not CMS_TEMPLATES.value:
             CMS_TEMPLATES.value = [('dummy',
                                     'Please create a template first.')]
@@ -105,7 +109,7 @@ class DBTemplatesMiddleware(object):
         # This is a huge hack.
         # Expand the model choices field to contain all templates.
         all_templates = Template.objects.all().values_list('name')
-        choices = [t * 2 for t in all_templates]
+        choices = [templates * 2 for templates in all_templates]
         if settings.CMS_TEMPLATE_INHERITANCE:
             choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
                          CMS_TEMPLATE_INHERITANCE_TITLE)]
