@@ -22,7 +22,7 @@ CMS_TEMPLATE_INHERITANCE_TITLE = 'Inherit the template of the nearest ancestor'
 
 class SiteIDPatchMiddleware(object):
     """ This middleware works together with DynamicSiteIDMiddleware
-    from djangotoolbox and patches the site_id based on the
+    from djangotoolbox and patches the site id based on the
     django-cms cms_admin_site session variable if in admin or
     based on the domain by falling back on DynamicSiteIDMiddleware.
     """
@@ -42,25 +42,22 @@ class SiteIDPatchMiddleware(object):
         user = getattr(request, 'user', None)
 
         if (match.app_name == 'admin'
-        and match.url_name == 'index'
         and session_site_id is None
         and user is not None
         and not user.is_superuser
         and not user.is_anonymous()):
-            sites = get_user_sites_queryset(request.user)
-            try:
-                s_id = sites[0].pk
-                session_site_id = request.session['cms_admin_site'] = s_id
-            except IndexError as e:
-                # This user doesn't have any sites under his control.
-                logger.warning("SiteIDPatchMiddleware is raising {0}\n\n. "
-                               "This means the user doesn't have "
-                               "assigned any sites".format(e,))
-                pass
+            self.fallback.process_request(request)
+            session_site_id = settings.__class__.SITE_ID.value
+            allowed_sites = list(get_user_sites_queryset(request.user)
+                .values_list('id', flat=True))
+            if allowed_sites:
+                # change site only if current site is not allowed
+                if session_site_id not in allowed_sites:
+                    session_site_id = allowed_sites[0]
+                request.session['cms_admin_site'] = session_site_id
 
         if match.app_name == 'admin' and session_site_id is not None:
             settings.__class__.SITE_ID.value = session_site_id
-
         else:
             self.fallback.process_request(request)
 
