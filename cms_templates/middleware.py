@@ -13,6 +13,7 @@ from dbtemplates.models import Template
 from cms.models import Page
 from cms.utils.permissions import get_user_sites_queryset
 from settings import include_orphan
+from django.core.exceptions import PermissionDenied
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,8 @@ class SiteIDPatchMiddleware(object):
                 if session_site_id not in allowed_sites:
                     session_site_id = allowed_sites[0]
                 request.session['cms_admin_site'] = session_site_id
+            elif match.url_name != "index":
+                raise PermissionDenied
 
         if match.app_name == 'admin' and session_site_id is not None:
             settings.__class__.SITE_ID.value = session_site_id
