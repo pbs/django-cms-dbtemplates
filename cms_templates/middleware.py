@@ -56,7 +56,11 @@ class SiteIDPatchMiddleware(object):
                 if session_site_id not in allowed_sites:
                     session_site_id = allowed_sites[0]
                 request.session['cms_admin_site'] = session_site_id
-            elif match.url_name != "index":
+            elif match.url_name not in (
+                    "index",
+                    "logout",
+                    "password_change",
+                    "password_change_done"):
                 raise PermissionDenied
 
         if match.app_name == 'admin' and session_site_id is not None:
