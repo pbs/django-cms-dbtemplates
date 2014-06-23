@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+Revision 4c5bd0a (23.06.2014, 08:26 UTC)
+----------------------------------------
+
+No new issues.
+
+* Misc commits
+
+  * Allow user without roles to logout and change pwd.
+  * Dissalow user without roles from any model admin.
+  * change site to current only if allowed
+
 Revision a271953 (13.06.2014, 12:04 UTC)
 ----------------------------------------
 
