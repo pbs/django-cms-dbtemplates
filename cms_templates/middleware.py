@@ -105,9 +105,9 @@ class DBTemplatesMiddleware(object):
             logger.error('Current site not found: %d. '
                          'It was probably deleted' % site_id)
             raise Http404
-        CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in templates]
-        if not CMS_TEMPLATES.value:
-            CMS_TEMPLATES.value = [('dummy',
+        settings.__class__.CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in templates]
+        if not settings.__class__.CMS_TEMPLATES.value:
+            settings.__class__.CMS_TEMPLATES.value = [('dummy',
                                     'Please create a template first.')]
 
         # This is a huge hack.
@@ -118,5 +118,5 @@ class DBTemplatesMiddleware(object):
             choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
                          CMS_TEMPLATE_INHERITANCE_TITLE)]
         Page._meta.get_field_by_name('template')[0].choices[:] = choices
-        CMS_TEMPLATES.value.append((settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+        settings.__class__.CMS_TEMPLATES.value.append((settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
                                     CMS_TEMPLATE_INHERITANCE_TITLE))
