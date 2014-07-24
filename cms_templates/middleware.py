@@ -17,7 +17,7 @@ from django.core.exceptions import PermissionDenied
 
 logger = logging.getLogger(__name__)
 
-CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES = make_tls_property()
+settings.__class__.CMS_TEMPLATES = make_tls_property()
 CMS_TEMPLATE_INHERITANCE_TITLE = 'Inherit the template of the nearest ancestor'
 
 
@@ -105,9 +105,10 @@ class DBTemplatesMiddleware(object):
             logger.error('Current site not found: %d. '
                          'It was probably deleted' % site_id)
             raise Http404
-        settings.__class__.CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in templates]
-        if not settings.__class__.CMS_TEMPLATES.value:
-            settings.__class__.CMS_TEMPLATES.value = [('dummy',
+        CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES
+        CMS_TEMPLATES.value = [(templ.name, templ.name) for templ in templates]
+        if not CMS_TEMPLATES.value:
+            CMS_TEMPLATES.value = [('dummy',
                                     'Please create a template first.')]
 
         # This is a huge hack.
@@ -118,5 +119,5 @@ class DBTemplatesMiddleware(object):
             choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
                          CMS_TEMPLATE_INHERITANCE_TITLE)]
         Page._meta.get_field_by_name('template')[0].choices[:] = choices
-        settings.__class__.CMS_TEMPLATES.value.append((settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+        CMS_TEMPLATES.value.append((settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
                                     CMS_TEMPLATE_INHERITANCE_TITLE))
