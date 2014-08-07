@@ -1,6 +1,16 @@
 CHANGELOG
 =========
 
+Revision d736ea9 (07.08.2014, 07:13 UTC)
+----------------------------------------
+
+No new issues.
+
+* Misc commits
+
+  * Refactor: CMS_TEMPLATES is locally initialized.
+  * Remove CMS_TEMPLATES shorthand ...
+
 Revision 4c5bd0a (23.06.2014, 08:26 UTC)
 ----------------------------------------
 
