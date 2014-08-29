@@ -8,10 +8,10 @@ from djangotoolbox.utils import make_tls_property
 from djangotoolbox.sites.dynamicsite import DynamicSiteIDMiddleware
 from django.contrib.sites.models import Site
 from django.utils.cache import patch_vary_headers
+from django.utils.importlib import import_module
 
 from dbtemplates.models import Template
 from cms.models import Page
-from cms.utils.permissions import get_user_sites_queryset
 from settings import include_orphan
 from django.core.exceptions import PermissionDenied
 
@@ -19,6 +19,23 @@ logger = logging.getLogger(__name__)
 
 settings.__class__.CMS_TEMPLATES = make_tls_property()
 CMS_TEMPLATE_INHERITANCE_TITLE = 'Inherit the template of the nearest ancestor'
+
+
+def get_user_allowed_sites(user):
+
+    def _import_function(func_path):
+        if not func_path:
+            return None
+        module_name, func_name = func_path.rsplit('.', 1)
+        return getattr(import_module(module_name), func_name, None)
+
+    get_sites_ids = _import_function(
+        getattr(settings, 'ALLOWED_SITE_IDS_FOR_USER', None))
+    if get_sites_ids:
+        return list(get_sites_ids(user))
+
+    from cms.utils.permissions import get_user_sites_queryset
+    return list(get_user_sites_queryset(user).values_list('id', flat=True))
 
 
 class SiteIDPatchMiddleware(object):
@@ -49,8 +66,7 @@ class SiteIDPatchMiddleware(object):
         and not user.is_anonymous()):
             self.fallback.process_request(request)
             session_site_id = settings.__class__.SITE_ID.value
-            allowed_sites = list(get_user_sites_queryset(request.user)
-                .values_list('id', flat=True))
+            allowed_sites = get_user_allowed_sites(request.user)
             if allowed_sites:
                 # change site only if current site is not allowed
                 if session_site_id not in allowed_sites:
