@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+Revision e5ba630 (09.09.2014, 13:04 UTC)
+----------------------------------------
+
+* LUN-1805
+
+  * allow other permission checks than the ones from cms.
+
+No other commits.
+
 Revision d736ea9 (07.08.2014, 07:13 UTC)
 ----------------------------------------
 
