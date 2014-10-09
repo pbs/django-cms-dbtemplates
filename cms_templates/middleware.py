@@ -48,7 +48,7 @@ def _set_cms_templates_for_request(request):
     site_id = request.session.get('cms_admin_site', settings.SITE_ID)
     try:
         templates = get_site_templates(site_id)
-    except Site.DoesNotExist:
+    except (Site.DoesNotExist, ValueError):
         logger.error('Current site not found: %d. '
                      'It was probably deleted' % site_id)
         raise Http404
