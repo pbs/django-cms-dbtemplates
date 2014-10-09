@@ -57,6 +57,8 @@ def _set_cms_templates_for_request(request):
     if not CMS_TEMPLATES.value:
         CMS_TEMPLATES.value = [('dummy',
                                 'Please create a template first.')]
+    CMS_TEMPLATES.value.append((settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+                                CMS_TEMPLATE_INHERITANCE_TITLE))
 
 
 class SiteIDPatchMiddleware(object):
@@ -77,17 +79,10 @@ class SiteIDPatchMiddleware(object):
             logger.warning("SiteIDPatchMiddleware is raising {0}\n\n. "
                            "Using {1} and bubble up".format(e, self.fallback))
             self.fallback.process_request(request)
-            # any exception raised by the resolver must be raised further
-            raise e
-        finally:
             # try to set the correct value for CMS_TEMPLATES.
             # this ensures we are able to correctly display the CMS error page
-            try:
-                _set_cms_templates_for_request(request)
-            except:
-                # do not interfere in the normal exception flow, since
-                # setting the correct CMS_TEMPLATES in this step is optional
-                pass
+            _set_cms_templates_for_request(request)
+            raise e
 
         user = getattr(request, 'user', None)
 
@@ -156,6 +151,3 @@ class DBTemplatesMiddleware(object):
             choices += [(settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
                          CMS_TEMPLATE_INHERITANCE_TITLE)]
         Page._meta.get_field_by_name('template')[0].choices[:] = choices
-        CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES
-        CMS_TEMPLATES.value.append((settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
-                                    CMS_TEMPLATE_INHERITANCE_TITLE))
