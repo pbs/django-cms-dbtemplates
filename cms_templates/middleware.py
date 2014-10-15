@@ -46,6 +46,11 @@ def _set_cms_templates_for_request(request):
     with respect to the current request.
     '''
     site_id = request.session.get('cms_admin_site', settings.SITE_ID)
+    CMS_TEMPLATES = settings.__class__.CMS_TEMPLATES
+    CMS_TEMPLATES.value = [('dummy', 'Please create a template first.'),
+        (settings.CMS_TEMPLATE_INHERITANCE_MAGIC,
+        CMS_TEMPLATE_INHERITANCE_TITLE)
+    ]
     try:
         templates = get_site_templates(site_id)
     except (Site.DoesNotExist, ValueError):
