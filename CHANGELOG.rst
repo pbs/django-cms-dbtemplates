@@ -1,6 +1,21 @@
 CHANGELOG
 =========
 
+Revision 47de751 (21.10.2014, 11:25 UTC)
+----------------------------------------
+
+* LUN-1869
+
+  * Update middleware.py
+  * Small improvement
+  * Set CMS_TEMPLATES only on exceptional case in SiteIdPatchMiddleware and don't care about interfering in the exception flow (a 404 could possibly be transformed into a 500)
+  * Since we are managing the state of the current site id, it is important to sync the CMS_TEMPLATES variables as sooner as possible in the request/response cycle, so that even on early middleware chain breaking, the error page will be displayed correctly with respect to the current site. This fix also ensures that we are able to show the CMS error page even if there is an early exception raised in the middleware chain
+
+* Misc commits
+
+  * Set the default CMS_TEMPLATES at the beginning
+  * Update middleware.py
+
 Revision e5ba630 (09.09.2014, 13:04 UTC)
 ----------------------------------------
 
