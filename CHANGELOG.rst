@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+Revision 8bc3dcc (06.05.2015, 06:38 UTC)
+----------------------------------------
+
+No new issues.
+
+* Misc commits
+
+  * CMS_TEMPLATES needs only template names. No need to pull template content from db
+
 Revision 47de751 (21.10.2014, 11:25 UTC)
 ----------------------------------------
 
