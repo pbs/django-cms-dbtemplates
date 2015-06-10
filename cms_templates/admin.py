@@ -259,7 +259,7 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
             return cleaned_data
 
         if not cleaned_data['sites']:
-            cleaned_data['sites'] = Site.objects.get_empty_query_set()
+            cleaned_data['sites'] = Site.objects.none()
 
         sites_assigned_in_widget = [site.domain
                                     for site in cleaned_data['sites']]
