@@ -11,10 +11,10 @@ INSTALLED_APPS = [
     'cms',
     'mptt',
     'menus',
-    'south',
     'sekizai',
     'dbtemplates',
     'cms_templates',
+    'cms_templates.tests',
 ]
 
 CMS_TEMPLATES = []
@@ -67,3 +67,9 @@ CACHE_BACKEND='locmem:///'
 # make sure template validation will work when TEMPLATE_DEBUG is False
 TEMPLATE_DEBUG = False
 PLUGIN_TEMPLATE_REFERENCES = ['PluginBaseA', 'PluginBaseB']
+SECRET_KEY = 'secret'
+
+MIGRATION_MODULES = {
+    'cms_templates': 'cms_templates.tests.migrations'
+}
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'

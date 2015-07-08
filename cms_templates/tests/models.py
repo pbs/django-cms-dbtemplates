@@ -9,6 +9,7 @@ class PluginModelA(CMSPlugin):
     some_template = models.ForeignKey(Template, blank=True, null=True)
 
     class Meta:
+        db_table = 'cmsplugin_pluginmodela'
         app_label = 'cms_templates'
 
 
@@ -16,6 +17,7 @@ class PluginModelB(CMSPlugin):
     some_template_name = models.CharField(max_length=100)
 
     class Meta:
+        db_table = 'cmsplugin_pluginmodelb'
         app_label = 'cms_templates'
 
 
@@ -23,6 +25,7 @@ class PluginModelC(CMSPlugin):
     templ_name = models.CharField(max_length=100)
 
     class Meta:
+        db_table = 'cmsplugin_pluginmodelc'
         app_label = 'cms_templates'
 
 

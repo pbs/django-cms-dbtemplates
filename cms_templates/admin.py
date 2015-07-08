@@ -263,7 +263,6 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
 
         sites_assigned_in_widget = [site.domain
                                     for site in cleaned_data['sites']]
-
         try:
             compiled_template = _Template(cleaned_data.get('content'))
 
