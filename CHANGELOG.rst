@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+Revision 45d9308 (17.07.2015, 13:45 UTC)
+----------------------------------------
+
+No new issues.
+
+* Misc commits
+
+  * tox: Don't allow django 1.8 prereleases
+  * Django 1.7 upgrade; updated template analyzer based on cms&sekizai changes; fixed tests; added django migrations
+  * Django 1.6 upgrade: fixed imports & empty qs
+
 Revision 8bc3dcc (06.05.2015, 06:38 UTC)
 ----------------------------------------
 
