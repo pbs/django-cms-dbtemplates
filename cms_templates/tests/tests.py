@@ -237,7 +237,7 @@ class TestTemplateValidationBaseMixin(object):
         args, url = ((instance_id, ), "admin:%s_%s_change") if instance_id \
             else ((), "admin:%s_%s_add")
         return urlresolvers.reverse(url % (
-            model._meta.app_label, model._meta.module_name),
+            model._meta.app_label, model._meta.model_name),
         args=args)
 
     def _trigger_validation_error_on_site_form(
