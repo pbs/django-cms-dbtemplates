@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+Revision 05c2e01 (30.07.2015, 09:08 UTC)
+----------------------------------------
+
+No new issues.
+
+* Misc commits
+
+  * Django 1.7 upgrade: updated admin template form focus() call
+
 Revision 45d9308 (17.07.2015, 13:45 UTC)
 ----------------------------------------
 
