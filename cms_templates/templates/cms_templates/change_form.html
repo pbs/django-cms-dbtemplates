@@ -8,8 +8,6 @@
 {{ media }}
 {% endblock %}
 
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}admin/css/forms.css" />{% endblock %}
-
 {% block coltype %}{% if ordered_objects %}colMS{% else %}colM{% endif %}{% endblock %}
 
 {% block bodyclass %}{{ opts.app_label }}-{{ opts.object_name.lower }} change-form{% endblock %}
@@ -75,8 +73,8 @@
 {% block after_related_objects %}{% endblock %}
 
 {% if read_only %}
-<div class="submit-row">
-    <a style="float:right; padding:10px" href="../">Back to Templates</a>
+<div class="submit-row form-actions text-right no-margin-bottom no-background">
+    <a href="../" class="default btn btn-primary">Back to Templates</a>
 </div>
 {% else %}
     {% submit_row %}
