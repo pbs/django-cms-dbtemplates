@@ -50,9 +50,11 @@
                                       <span class="help-button" data-rel="popover" data-trigger="hover" data-placement="right" data-content='{{ field.field.help_text|escape }}'>?</span>
                                     {% endif %}
                                 {% endif %}
-                                <div class="help-block col-xs-12 col-sm-reset inline">
-                                    {% if line.fields|length_is:'1' %}{{ line.errors }}{% endif %}
-                                </div>
+                                {% if line.errors %}
+                                    <div class="help-block col-xs-12 col-sm-reset inline">
+                                        {% if line.fields|length_is:'1' %}{{ line.errors }}{% endif %}
+                                    </div>
+                                {% endif %}
                             </div>
                         {% endif %}
                     </div>
