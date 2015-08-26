@@ -44,7 +44,7 @@
                                     {{ field.field }}
                                 {% endif %}
                                 {% if field.field.help_text %}
-                                    {% if '<a href=' in field.field.help_text %}
+                                    {% if 'href=' in field.field.help_text %}
                                         <span class="help-block">{{ field.field.help_text|safe }}</span>
                                     {% else %}
                                       <span class="help-button" data-rel="popover" data-trigger="hover" data-placement="right" data-content='{{ field.field.help_text|escape }}'>?</span>
