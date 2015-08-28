@@ -1,6 +1,19 @@
 CHANGELOG
 =========
 
+Revision b676c3b (28.08.2015, 07:21 UTC)
+----------------------------------------
+
+* LUN-2310
+
+  * updated if condition for tooltip to appear
+  * messages wrapper appears only if there are messages
+  * remaining of fieldset classes
+  * updates for Ace theme on fieldset
+  * breadcrumbs updated
+
+No other commits.
+
 Revision 05c2e01 (30.07.2015, 09:08 UTC)
 ----------------------------------------
 
