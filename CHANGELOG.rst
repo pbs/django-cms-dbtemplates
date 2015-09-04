@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+Revision b049980 (04.09.2015, 09:02 UTC)
+----------------------------------------
+
+* LUN-2596
+
+  * fieldset columns widths updated
+
+No other commits.
+
 Revision b676c3b (28.08.2015, 07:21 UTC)
 ----------------------------------------
 
