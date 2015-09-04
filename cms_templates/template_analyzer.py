@@ -3,7 +3,7 @@ from django.template.loader_tags import (IncludeNode,
 from sekizai.templatetags.sekizai_tags import RenderBlock
 from sekizai.helpers import (
     is_variable_extend_node, _extend_blocks, FAKE_CONTEXT)
-from django.template import VariableNode, NodeList, Variable
+from django.template.base import VariableNode, NodeList, Variable
 from menus.templatetags.menu_tags import ShowMenu, ShowSubMenu, ShowBreadcrumb
 from django.template.loader import get_template
 
@@ -68,10 +68,15 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
                     template = get_template(node.template.var)
             else:
                 template = node.template
+            if not hasattr(template, 'name'):
+                template = template.template
             found.append(template.name)
             found += get_all_templates_used(_get_nodelist(template))
         elif isinstance(node, ExtendsNode):
-            found.append(node.get_parent(FAKE_CONTEXT).name)
+            template = node.get_parent(FAKE_CONTEXT)
+            if not hasattr(template, 'name'):
+                template = template.template
+            found.append(template.name)
             found += _extend_nodelist(node)
             if hasattr(node, 'child_nodelists'):
                 for child_lst in node.child_nodelists:
@@ -96,7 +101,7 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
                 if menu_template_name:
                     found.append(menu_template_name)
                     compiled_template = get_template(menu_template_name)
-                    found += get_all_templates_used(compiled_template.nodelist)
+                    found += get_all_templates_used(_get_nodelist(compiled_template))
         elif hasattr(node, 'child_nodelists'):
             for child_lst in node.child_nodelists:
                 _found_to_add, current_block = _scan_nodelist(

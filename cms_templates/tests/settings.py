@@ -23,26 +23,15 @@ CMS_PERMISSION = True
 STATIC_ROOT = '/static/'
 STATIC_URL = '/static/'
 ROOT_URLCONF = 'cms_templates.tests.urls'
-TEMPLATE_CONTEXT_PROCESSORS = [
-    "django.contrib.auth.context_processors.auth",
-    'django.contrib.messages.context_processors.messages',
-    "django.core.context_processors.i18n",
-    "django.core.context_processors.debug",
-    "django.core.context_processors.request",
-    "django.core.context_processors.media",
-    'django.core.context_processors.csrf',
-    "cms.context_processors.media",
-    "sekizai.context_processors.sekizai",
-    "django.core.context_processors.static",
-]
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME' : 'test.db', # Or path to database file if using sqlite3.
-        'USER' : '', # Not used with sqlite3.
-        'PASSWORD' : '', # Not used with sqlite3.
-        'HOST' : '', # Set to empty string for localhost. Not used with sqlite3.
-        'PORT' : '', # Set to empty string for default. Not used with sqlite3.
+        'NAME': 'test.db',  # Or path to database file if using sqlite3.
+        'USER': '',  # Not used with sqlite3.
+        'PASSWORD': '',  # Not used with sqlite3.
+        'HOST': '',  # Set to empty string for localhost. Not used with sqlite3.
+        'PORT': '',  # Set to empty string for default. Not used with sqlite3.
     }
 }
 MIDDLEWARE_CLASSES = (
@@ -57,15 +46,9 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
 )
-TEMPLATE_LOADERS = (
-    'django.template.loaders.filesystem.Loader',
-    'django.template.loaders.app_directories.Loader',
-    'django.template.loaders.eggs.Loader',
-    'cms_templates.loader.CmsTemplatesLoader',
-    )
-CACHE_BACKEND='locmem:///'
-# make sure template validation will work when TEMPLATE_DEBUG is False
-TEMPLATE_DEBUG = False
+
+CACHE_BACKEND = 'locmem:///'
+
 PLUGIN_TEMPLATE_REFERENCES = ['PluginBaseA', 'PluginBaseB']
 SECRET_KEY = 'secret'
 
@@ -73,3 +56,40 @@ MIGRATION_MODULES = {
     'cms_templates': 'cms_templates.tests.migrations'
 }
 TEST_RUNNER = 'django.test.runner.DiscoverRunner'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'OPTIONS': {
+            'context_processors': (
+                "django.contrib.auth.context_processors.auth",
+                'django.contrib.messages.context_processors.messages',
+                "django.template.context_processors.i18n",
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.template.context_processors.media",
+                'django.template.context_processors.csrf',
+                "cms.context_processors.media",
+                "sekizai.context_processors.sekizai",
+                "django.template.context_processors.static",
+            ),
+            'loaders': (
+                'django.template.loaders.filesystem.Loader',
+                'django.template.loaders.app_directories.Loader',
+                'django.template.loaders.eggs.Loader',
+                'cms_templates.loader.CmsTemplatesLoader',
+            ),
+            'debug': False
+        },
+    },
+]
+
+class DisableMigrations(object):
+
+    def __contains__(self, item):
+        return True
+
+    def __getitem__(self, item):
+        return "notmigrations"
+
+MIGRATION_MODULES = DisableMigrations()

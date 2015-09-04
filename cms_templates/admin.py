@@ -2,6 +2,7 @@ from django.contrib.sites.models import Site
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError, ImproperlyConfigured
 from django.conf import settings
+from django.template import Engine
 from django.db.models import Q, Count
 from django.forms import ModelMultipleChoiceField
 from django.template import (Template as _Template, TemplateSyntaxError)
@@ -24,12 +25,13 @@ def with_template_debug_on(clean_func):
 
     @wraps(clean_func)
     def wrapper(*args, **kwargs):
-        initial_setting = getattr(settings, 'TEMPLATE_DEBUG')
+        engine = Engine.get_default()
+        initial_setting = engine.debug
         try:
-            setattr(settings, 'TEMPLATE_DEBUG', True)
+            engine.debug = True
             return clean_func(*args, **kwargs)
         finally:
-            setattr(settings, 'TEMPLATE_DEBUG', initial_setting)
+            engine.debug = initial_setting
 
     return wrapper
 
