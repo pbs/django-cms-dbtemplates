@@ -8,7 +8,7 @@ from djangotoolbox.utils import make_tls_property
 from djangotoolbox.sites.dynamicsite import DynamicSiteIDMiddleware
 from django.contrib.sites.models import Site
 from django.utils.cache import patch_vary_headers
-from django.utils.importlib import import_module
+from importlib import import_module
 
 from dbtemplates.models import Template
 from cms.models import Page
