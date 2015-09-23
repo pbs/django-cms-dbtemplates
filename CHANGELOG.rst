@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+Revision 6ff5d78 (23.09.2015, 15:31 UTC)
+----------------------------------------
+
+No new issues.
+
+* Misc commits
+
+  * Django 1.8: updated templates
+  * Django 1.8 upgrade: removed some django1.9 deprecation warnings
+  * Django 1.8 upgrade: fixed tests; changed tests settings;
+
 Revision b049980 (04.09.2015, 09:02 UTC)
 ----------------------------------------
 
