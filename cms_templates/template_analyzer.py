@@ -84,8 +84,13 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
                         getattr(node, child_lst, ''), node, current_block)
                     found += _found_to_add
         elif isinstance(node, RenderBlock):
-            node.kwargs['name'].resolve({})
-            found += get_all_templates_used(node.blocks['nodelist'], node)
+            try:
+                node.kwargs['name'].resolve({})
+                found += get_all_templates_used(node.blocks['nodelist'], node)
+            except AttributeError:
+                # We cannot mock the context, so if some attribute is accessed, assume
+                # it has failed and move on
+                pass
         elif (isinstance(node, VariableNode) and current_block and
               node.filter_expression.token == 'block.super' and
               hasattr(current_block.super, 'nodelist')):
@@ -97,7 +102,13 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
               isinstance(node, ShowBreadcrumb)):
             menu_template_node = node.kwargs.get('template', None)
             if menu_template_node and hasattr(menu_template_node, 'var'):
-                menu_template_name = menu_template_node.var.resolve({})
+                try:
+                    menu_template_name = menu_template_node.var.resolve({})
+                except AttributeError:
+                    # We cannot mock the context, so if some attribute is accessed, assume
+                    # it has failed and move on
+                    menu_template_name = None
+
                 if menu_template_name:
                     found.append(menu_template_name)
                     compiled_template = get_template(menu_template_name)
