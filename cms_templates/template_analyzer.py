@@ -1,3 +1,5 @@
+from django.template.base import Template
+from django.template.context import Context
 from django.template.loader_tags import (IncludeNode,
                                          ExtendsNode, BlockNode)
 from sekizai.templatetags.sekizai_tags import RenderBlock
@@ -84,13 +86,11 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
                         getattr(node, child_lst, ''), node, current_block)
                     found += _found_to_add
         elif isinstance(node, RenderBlock):
-            try:
-                node.kwargs['name'].resolve({})
-                found += get_all_templates_used(node.blocks['nodelist'], node)
-            except AttributeError:
-                # We cannot mock the context, so if some attribute is accessed, assume
-                # it has failed and move on
-                pass
+            template = Template('')
+            context = Context()
+            with context.bind_template(template):
+                node.kwargs['name'].resolve(context)
+            found += get_all_templates_used(node.blocks['nodelist'], node)
         elif (isinstance(node, VariableNode) and current_block and
               node.filter_expression.token == 'block.super' and
               hasattr(current_block.super, 'nodelist')):
@@ -102,12 +102,10 @@ def get_all_templates_used(nodelist, current_block=None, ignore_blocks=None):
               isinstance(node, ShowBreadcrumb)):
             menu_template_node = node.kwargs.get('template', None)
             if menu_template_node and hasattr(menu_template_node, 'var'):
-                try:
-                    menu_template_name = menu_template_node.var.resolve({})
-                except AttributeError:
-                    # We cannot mock the context, so if some attribute is accessed, assume
-                    # it has failed and move on
-                    menu_template_name = None
+                template = Template('')
+                context = Context()
+                with context.bind_template(template):
+                    menu_template_name = menu_template_node.var.resolve(context)
 
                 if menu_template_name:
                     found.append(menu_template_name)
