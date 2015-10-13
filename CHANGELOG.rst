@@ -1,6 +1,16 @@
 CHANGELOG
 =========
 
+Revision 6724c54 (13.10.2015, 11:54 UTC)
+----------------------------------------
+
+* LUN-2706
+
+  * Mock the context.
+  * We cannot mock the context, so handle the error as an invalid template.
+
+No other commits.
+
 Revision 6ff5d78 (23.09.2015, 15:31 UTC)
 ----------------------------------------
 
