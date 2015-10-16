@@ -3,6 +3,7 @@ import logging
 from django.conf import settings
 from django.http import Http404
 from django.core.urlresolvers import resolve
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Q
 from djangotoolbox.utils import make_tls_property
 from djangotoolbox.sites.dynamicsite import DynamicSiteIDMiddleware
@@ -53,7 +54,7 @@ def _set_cms_templates_for_request(request):
     site_id = request.session.get('cms_admin_site', settings.SITE_ID)
     try:
         templates = get_site_templates(site_id).only('name')
-    except (Site.DoesNotExist, ValueError):
+    except (Site.DoesNotExist, ImproperlyConfigured, ValueError):
         logger.error('Current site not found: %s. '
                      'It was probably deleted' % site_id)
         raise Http404
