@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+Revision 4c3ea80 (14.01.2016, 13:38 UTC)
+----------------------------------------
+
+No new issues.
+
+* Misc commits
+
+  * Pin django-sekizai to last working version.
+
 Revision 08f8ffe (20.10.2015, 13:17 UTC)
 ----------------------------------------
 
