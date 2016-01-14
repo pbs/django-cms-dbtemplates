@@ -11,6 +11,7 @@ dependencies = [
     'django-dbtemplates>=1.4.1pbs, <1.5',
     'python-graph-core',
     'django-admin-extend',
+    'django-sekizai>=0.6.1,<0.9.0',
 ]
 
 
