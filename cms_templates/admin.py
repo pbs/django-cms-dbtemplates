@@ -404,6 +404,15 @@ class RestrictedTemplateAdmin(registered_modeladmin(Template)):
             redirect_url = reverse("admin:dbtemplates_template_change", args=[object_id])
             return HttpResponseRedirect(redirect_url)
 
+    def get_actions(self, request):
+        """
+        Overriden get_actions so we don't allow bulk deletions. Validations would get more
+        complicated.
+        """
+        actions = super(RestrictedTemplateAdmin, self).get_actions(request)
+        actions.pop('delete_selected', None)
+        return actions
+
 
 
 @extend_registered
