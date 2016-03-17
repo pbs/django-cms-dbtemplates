@@ -3,10 +3,12 @@ from dbtemplates.models import Template
 from django.contrib.sites.models import Site
 from django.contrib.auth.models import User, Group
 from django.contrib.admin.options import ModelAdmin
+from django.core.exceptions import ValidationError
 from django.test.client import RequestFactory
 from django.template import loader, Context, TemplateDoesNotExist
 from django.core import urlresolvers
 from django.conf import settings
+from django.test import override_settings
 from djangotoolbox.utils import make_tls_property
 from cms.models.permissionmodels import GlobalPagePermission
 from cms.models import Page, Title, Placeholder
@@ -15,12 +17,17 @@ from cms.test_utils.testcases import (CMSTestCase,
                                       URL_CMS_PAGE,
                                       URL_CMS_PAGE_ADD,)
 from datetime import datetime
-from mock import patch
+from mock import patch, Mock
 from parse import parse
 import re
+
 from cms_templates.recursive_validator import handle_recursive_calls, \
     InfiniteRecursivityError
 from cms_templates.tests.models import *
+from cms_templates.admin import (
+    RestrictedTemplateAdmin, TemplateUsedException, get_template_usages,
+    _page_usage, _template_usage
+)
 
 
 def _fix_lang_url(url):
@@ -777,3 +784,72 @@ class InfiniteRecursivityErrorTest(TestCase):
         except InfiniteRecursivityError, e:
             self.assertEqual(set([u'tpl1', u'tpl2', u'tpl3', u'tpl4']), \
                                      set(e.cycle_items))
+
+
+
+@override_settings(SITE_ID=1)
+class TestAdminOperations(TestCase):
+
+    def setUp(self):
+        self.site = Site.objects.create(domain="test.org", name="test")
+        settings.__class__.SITE_ID = make_tls_property()
+        settings.__class__.SITE_ID.value = self.site.id
+        self.page_template = Template.objects.create(
+            name="page_template", content="must not be empty")
+        self.page = Page.objects.create(template="page_template", site=self.site)
+
+        self.parent_template = Template.objects.create(
+            name="parent", content="must not be empty")
+        self.child_template = Template.objects.create(
+            name="child", content="{% extends 'parent' %}")
+
+        self.parent_template2 = Template.objects.create(
+            name="parent2", content="must not be empty")
+        self.child_template2 = Template.objects.create(
+            name="child2", content="{% extends 'parent2' %}")
+        self.child_template3 = Template.objects.create(
+            name="child3", content="{% extends 'parent2' %}")
+        self.page2 = Page.objects.create(template="parent2", site=self.site)
+
+
+    def test_delete_is_prevented(self):
+        request = Mock()
+        template_admin = RestrictedTemplateAdmin(self.page_template, Mock())
+        with self.assertRaises(TemplateUsedException):
+            template_admin.delete_model(request, self.page_template)
+
+    def test_get_template_usages(self):
+        cases = [
+            (self.page_template, {'pages': [self.page,]}),
+            (self.child_template, None),
+            (self.parent_template, {'templates': [self.child_template,]}),
+            (self.parent_template2, {'pages': [self.page2],
+                                     'templates': [self.child_template2, self.child_template3]}),
+        ]
+
+        def _make_expected(expected):
+            pages = {
+                self.site: [_page_usage(page)
+                            for page in expected.get('pages', [])]
+            } if expected.get('pages') else {}
+            return {
+                'pages': pages,
+                'child_templates': [_template_usage(tmp)
+                                    for tmp in expected.get('templates', [])],
+            }
+
+        for template, expected in cases:
+            actual = get_template_usages(template)
+            if expected:
+                expected = _make_expected(expected)
+                self.assertEqual(
+                    actual, expected, "Usages are not correct for {}, expected {}, actual {}"
+                    .format(template, expected, actual))
+                one_usage = get_template_usages(template, only_one_required=True)
+                usages = len(one_usage.get('pages', [])) + len(one_usage.get('child_templates', []))
+                self.assertEqual(
+                    usages, 1, "Expected one usage retrieved for {}, but retrieved {}"
+                    .format(template, one_usage))
+            else:
+                self.assertEqual(actual, None,
+                                 "No usage should be found for {}".format(template))
