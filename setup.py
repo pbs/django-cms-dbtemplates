@@ -24,7 +24,7 @@ dependency_links = [
 
 setup(
     name='django-cms-dbtemplates',
-    version='1.4.1',
+    version='1.4.2',
     description='Integrate django-cms and django-dbtemplates',
     long_description=open(README_PATH, 'r').read(),
     author='Sever Banesiu',
