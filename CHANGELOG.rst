@@ -1,6 +1,16 @@
 CHANGELOG
 =========
 
+Revision 6a58344 (18.03.2016, 12:27 UTC)
+----------------------------------------
+
+* LUN-2942
+
+  * Disable bulk delete for templates.
+  * Prevent deleting templates that are used.
+
+No other commits.
+
 Revision 4c3ea80 (14.01.2016, 13:38 UTC)
 ----------------------------------------
 
