@@ -1,6 +1,7 @@
 from django.contrib.sites.models import Site
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError, ImproperlyConfigured
+from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.template import Engine
 from django.db.models import Q, Count
@@ -8,6 +9,7 @@ from django.forms import ModelMultipleChoiceField
 from django.template import (Template as _Template, TemplateSyntaxError)
 from django.template.base import TemplateDoesNotExist
 from django.db.models import Q, Count, fields
+from django.http.response import HttpResponseRedirect
 from cms.models import Page
 from cms.plugin_pool import plugin_pool
 from dbtemplates.models import Template
@@ -39,7 +41,6 @@ def with_template_debug_on(clean_func):
 def _format_pages(page_qs):
     return ', '.join(['%s(%d)' % (page.get_title() or '', page.id)
                       for page in page_qs])
-
 
 class ExtendedTemplateAdminForm(registered_form(Template)):
 
@@ -187,8 +188,7 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
         sites_to_unassign = Site.objects.filter(id__in=sites_to_unassign_ids)
 
         unassigned_page_templates = self._build_site_to_templates(
-            sites_to_unassign.values_list(
-                'page__template', 'domain').distinct())
+            sites_to_unassign.values_list('page__template', 'domain').distinct())
 
         unassigned_site_templates = {
             s.domain: s.template_set.exclude(name=self.instance.name).\
@@ -325,11 +325,94 @@ class ExtendedTemplateAdminForm(registered_form(Template)):
         return cleaned_data
 
 
+def get_templates_that_use_template(template_name, only_one_required=False):
+    quoted_name = "'%s'" % template_name
+    double_quoted_name = '"%s"' % template_name
+
+    candidates = Template.objects.filter(Q(content__contains=quoted_name) |
+                                         Q(content__contains=double_quoted_name))
+    child_templates = []
+    for child_template in candidates:
+        try:
+            parents = get_all_templates_used(_Template(child_template.content).nodelist)
+        except TemplateDoesNotExist:
+            parents = []
+        if template_name in parents:
+            if only_one_required:
+                return [child_template]
+            child_templates.append(child_template)
+    return child_templates
+
+
+def _page_usage(page):
+    return (page.get_title(), reverse("admin:cms_page_change", args=[page.id]))
+
+
+def _template_usage(template):
+    return (template.name, reverse("admin:dbtemplates_template_change", args=[template.id]))
+
+
+def get_template_usages(template, only_one_required=False):
+    pages = Page.objects.filter(template=template.name).select_related("site")
+    if pages and only_one_required:
+        page = pages[0]
+        return {'pages': {page.site: [_page_usage(pages[0]),]}}
+    pages_by_site = {}
+    for page in pages:
+        pages_by_site.setdefault(page.site, []).append(_page_usage(page))
+    child_templates = get_templates_that_use_template(template.name, only_one_required)
+    if child_templates and only_one_required:
+        return {'child_templates': [_template_usage(child_templates[0]),]}
+    return {
+        "pages": pages_by_site,
+        "child_templates":[_template_usage(temp) for temp in child_templates]
+    } if pages_by_site or child_templates else None
+
+
+class TemplateUsedException(Exception):
+    def __init__(self, usages, *args, **kwargs):
+        self.usages = usages
+        super(TemplateUsedException, self).__init__(*args, **kwargs)
+
+
 @extend_registered
 class RestrictedTemplateAdmin(registered_modeladmin(Template)):
     list_filter = ('sites__name', )
     change_form_template = 'cms_templates/change_form.html'
+    delete_confirmation_template = 'cms_templates/admin_delete_confirmation.html'
     form = ExtendedTemplateAdminForm
+
+    def delete_model(self, request, obj):
+        template_usage = get_template_usages(obj, only_one_required=True)
+        if template_usage:
+            raise TemplateUsedException(usages=template_usage)
+        super(RestrictedTemplateAdmin, self).delete_model(request, obj)
+
+    def delete_view(self, request, object_id, extra_context=None):
+        if request.method == 'GET':
+            try:
+                template = Template.objects.get(id=object_id)
+                extra_context = extra_context or {}
+                extra_context['usage_errors'] = get_template_usages(template)
+            except Template.DoesNotExist:
+                # Let the error be handled by the default view
+                pass
+        try:
+            return super(RestrictedTemplateAdmin, self).delete_view(
+                request, object_id, extra_context)
+        except TemplateUsedException:
+            redirect_url = reverse("admin:dbtemplates_template_change", args=[object_id])
+            return HttpResponseRedirect(redirect_url)
+
+    def get_actions(self, request):
+        """
+        Overriden get_actions so we don't allow bulk deletions. Validations would get more
+        complicated.
+        """
+        actions = super(RestrictedTemplateAdmin, self).get_actions(request)
+        actions.pop('delete_selected', None)
+        return actions
+
 
 
 @extend_registered
